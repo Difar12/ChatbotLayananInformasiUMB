@@ -1,0 +1,357 @@
+/* --- Base & Fonts --- */
+:root {
+    --font-sans: 'Inter', sans-serif;
+    --font-serif: 'Merriweather', serif;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
+    --slate-400: #94a3b8;
+    --slate-500: #64748b;
+    --slate-700: #334155;
+    --slate-800: #1e293b;
+    --blue-700: #1d4ed8;
+    --blue-800: #1e40af;
+    --red-600: #dc2626;
+    --white: #ffffff;
+}
+
+body {
+    font-family: var(--font-sans);
+    background-color: var(--slate-100);
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* --- Header --- */
+.header {
+    background-color: var(--white);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    z-index: 10;
+}
+.header-content {
+    max-width: 64rem; /* 1024px */
+    margin: 0 auto;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+.logo {
+    height: 3rem; /* 48px */
+    width: 3rem; /* 48px */
+}
+.title {
+    font-family: var(--font-serif);
+    color: var(--slate-800);
+    font-size: 1.25rem; /* 20px */
+    font-weight: 700;
+    letter-spacing: 0.025em;
+    margin: 0;
+}
+.subtitle {
+    font-size: 0.875rem; /* 14px */
+    font-weight: 600;
+    color: var(--red-600);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0;
+}
+
+/* --- Main Container --- */
+.main-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    overflow: hidden;
+}
+
+/* --- Chat Box --- */
+.chat-box {
+    flex: 1;
+    padding: 1.5rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-height: 0; /* <-- FIX: Added this line to prevent overflow */
+}
+.chat-box::-webkit-scrollbar { width: 6px; }
+.chat-box::-webkit-scrollbar-track { background: var(--slate-100); }
+.chat-box::-webkit-scrollbar-thumb { background: var(--slate-400); border-radius: 3px; }
+.chat-box::-webkit-scrollbar-thumb:hover { background: var(--slate-500); }
+
+/* --- Messages --- */
+.message-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    max-width: 80%;
+}
+.message-user {
+    justify-content: flex-end;
+    align-self: flex-end;
+}
+.message-bot {
+    justify-content: flex-start;
+    align-self: flex-start;
+}
+.avatar {
+    width: 2.5rem; /* 40px */
+    height: 2.5rem; /* 40px */
+    background-color: var(--slate-700);
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    flex-shrink: 0;
+    font-weight: 700;
+}
+.bubble {
+    padding: 1rem;
+    border-radius: 1rem;
+    max-width: 100%;
+    line-height: 1.6;
+}
+.bubble-bot {
+    background-color: var(--slate-200);
+    color: var(--slate-800);
+    border-top-left-radius: 0;
+}
+.bubble-user {
+    background-color: var(--blue-700);
+    color: var(--white);
+    border-top-right-radius: 0;
+}
+.bubble p:last-child { margin-bottom: 0; }
+.error-message { color: var(--red-600); }
+
+
+/* --- Welcome & FAQ --- */
+.welcome-title { font-weight: 600; margin-bottom: 0.5rem; }
+.welcome-subtitle { font-size: 0.875rem; margin-bottom: 1rem; }
+.faq-container {
+    border-top: 1px solid var(--slate-300);
+    padding-top: 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.faq-button {
+    font-size: 0.875rem;
+    background-color: var(--white);
+    border: 1px solid var(--slate-300);
+    border-radius: 9999px;
+    padding: 0.375rem 1rem;
+    color: var(--blue-700);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+.faq-button:hover {
+    background-color: #eff6ff; /* blue-50 */
+    border-color: #93c5fd; /* blue-300 */
+}
+
+/* --- Typing Indicator --- */
+.typing-indicator .dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    background-color: var(--slate-400);
+    border-radius: 9999px;
+    display: inline-block;
+    animation: bounce 1.4s infinite ease-in-out both;
+}
+.typing-indicator .dot:nth-child(2) { animation-delay: -0.16s; }
+.typing-indicator .dot:nth-child(3) { animation-delay: -0.32s; }
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1.0); }
+}
+
+/* --- Input Area --- */
+.input-area {
+    padding: 1rem;
+    background-color: var(--white);
+    border-top: 1px solid var(--slate-200);
+    border-bottom-left-radius: 1rem;
+    border-bottom-right-radius: 1rem;
+}
+.chat-form {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+.user-input {
+    width: 100%;
+    background-color: var(--slate-100);
+    border: 1px solid var(--slate-300);
+    border-radius: 9999px;
+    padding: 0.75rem 1.25rem;
+    color: var(--slate-800);
+    font-size: 1rem;
+    transition: all 0.2s ease-in-out;
+}
+.user-input::placeholder { color: var(--slate-400); }
+.user-input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--blue-700);
+}
+.icon-button, .send-button {
+    padding: 0.75rem;
+    border-radius: 9999px;
+    transition: background-color 0.2s ease-in-out;
+    border: none;
+    cursor: pointer;
+}
+.icon-button {
+    color: var(--slate-500);
+    background-color: transparent;
+}
+.icon-button:hover {
+    background-color: var(--slate-200);
+    color: var(--slate-800);
+}
+.send-button {
+    background-color: var(--blue-700);
+    color: var(--white);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+}
+.send-button:hover {
+    background-color: var(--blue-800);
+}
+.icon {
+    height: 1.5rem; /* 24px */
+    width: 1.5rem; /* 24px */
+}
+
+/* ================================================= */
+/* === STYLING KONTEN CHATBOT (BAGIAN PENTING) === */
+/* ================================================= */
+
+.bubble-bot {
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+.bubble-bot p {
+    margin: 0 0 12px 0;
+}
+
+.bubble-bot strong {
+    font-size: 1.1em;
+    font-weight: 600;
+    display: block;
+    margin-top: 16px;
+    margin-bottom: 6px;
+}
+
+.bubble-bot > p:first-child + strong,
+.bubble-bot > strong:first-child {
+    margin-top: 0;
+}
+
+.bubble-bot ul,
+.bubble-bot ol {
+    margin-top: 8px;
+    margin-bottom: 12px;
+    padding-left: 25px;
+}
+
+.bubble-bot ul { list-style-type: disc !important; }
+.bubble-bot ol { list-style-type: decimal !important; }
+
+.bubble-bot li {
+    margin-bottom: 8px;
+    padding-left: 4px;
+}
+
+.bubble-bot a {
+    color: var(--blue-800);
+    font-weight: 600;
+    text-decoration: underline;
+}
+.bubble-bot a:hover {
+    text-decoration: none;
+}
+
+/* === GAYA BARU UNTUK FOLLOW-UP SUGGESTIONS === */
+.follow-up-container {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--slate-300);
+}
+
+.suggestion-btn {
+    background-color: #e0f2fe; /* light blue */
+    color: #0369a1; /* darker blue text */
+    padding: 6px 14px;
+    border-radius: 16px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    border: 1px solid #bae6fd; /* lighter blue border */
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.suggestion-btn:hover {
+    background-color: #bae6fd;
+    border-color: #7dd3fc;
+}
+
+/* [NEW] Styling untuk mode diperbesar */
+#chat-widget-container.is-expanded {
+    max-width: 90%;
+    width: 800px;
+    max-height: 90vh;
+}
+
+/* ===================================================== */
+/* === [FIX] LAYER/Z-INDEX UNTUK CHAT WIDGET (BARU) === */
+/* ===================================================== */
+
+#chat-widget-container {
+    position: relative;
+    z-index: 9999;
+}
+
+.modal-overlay {
+    z-index: 50;
+}
+
+/* Animasi Pop In dan Pop Out */
+@keyframes pop-in {
+    0% {
+        transform: scale(0.9);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes pop-out {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(0.9);
+        opacity: 0;
+    }
+}
+
+.animate-pop-in {
+    animation: pop-in 0.3s ease-out forwards;
+}
+
+.animate-pop-out {
+    animation: pop-out 0.3s ease-in forwards;
+}

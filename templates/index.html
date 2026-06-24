@@ -1,0 +1,1873 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Universitas Muhammadiyah Bandung</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        umb: {
+                            primary: '#0d4ea6',
+                            light: '#1a6fc4',
+                            gold: '#f5c518',
+                            navy: '#0a2d5e',
+                            purple: '#5b2d8e',
+                            red: '#dc2626',
+                            bg: '#f0f4f8'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Lora', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-serif-display { font-family: 'Lora', serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        
+        .chat-widget-transition {
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
+        }
+
+        /* === Rich-text respons bot: kembalikan styling yang dihapus Tailwind Preflight === */
+        .bot-content > *:first-child { margin-top: 0; }
+        .bot-content > *:last-child  { margin-bottom: 0; }
+        .bot-content p  { margin: 0 0 0.6em; }
+        .bot-content ul,
+        .bot-content ol { margin: 0.35em 0 0.75em; padding-left: 1.35em; }
+        .bot-content ul { list-style: disc; }
+        .bot-content ol { list-style: decimal; }
+        .bot-content li { margin-bottom: 0.3em; padding-left: 0.15em; }
+        .bot-content a {
+            color: #0d4ea6;              /* umb-primary */
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            font-weight: 600;
+            word-break: break-word;
+        }
+        .bot-content a:hover { color: #f5c518; }   /* umb-gold */
+        /* Heading = paragraf yang isinya hanya <strong>: beri jarak atas ekstra antar-bagian */
+        .bot-content p:has(> strong:only-child) { margin-top: 0.85em; }
+        .bot-content > p:first-child:has(> strong:only-child) { margin-top: 0; }
+        /* === Loading bubble: titik animasi "mengetik" === */
+        .typing-dots { display: inline-flex; align-items: center; gap: 4px; }
+        .typing-dots span {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: #0d4ea6; opacity: 0.35;
+            animation: typingBounce 1.3s infinite ease-in-out both;
+        }
+        .typing-dots span:nth-child(2) { animation-delay: 0.18s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.36s; }
+        @keyframes typingBounce {
+            0%, 70%, 100% { transform: translateY(0); opacity: 0.3; }
+            35% { transform: translateY(-5px); opacity: 1; }
+        }
+
+        /* ==========================================================
+           MOBILE UI/UX ENHANCEMENTS (≤ 639px / di bawah breakpoint sm)
+           Hanya menyentuh tampilan & kenyamanan sentuh — tidak mengubah
+           logika chat, endpoint, maupun struktur fungsional apa pun.
+           ========================================================== */
+
+        /* Hilangkan highlight biru kotak saat tap di Android/iOS → terasa lebih app-like */
+        button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
+
+        /* Kunci scroll body saat chat sheet terbuka di mobile (mencegah "scroll bocor") */
+        body.chat-open { overflow: hidden; }
+
+        /* Scrim/backdrop gelap di belakang bottom-sheet (khusus mobile) */
+        #chatScrim { transition: opacity 0.3s ease; }
+
+        @media (max-width: 639px) {
+            /* --- Bottom sheet: pakai dvh agar tinggi mengikuti viewport nyata
+                   (memperhitungkan address bar yang muncul/hilang & keyboard).  --- */
+            #chatContainer {
+                height: 92dvh;
+                max-height: 92dvh;
+                border-bottom-left-radius: 0;
+                border-bottom-right-radius: 0;
+                /* Fallback untuk browser lama tanpa dvh */
+                height: 92vh;
+                height: 92dvh;
+            }
+
+            /* Animasi masuk/keluar ala bottom-sheet: slide penuh dari bawah.
+               Saat tertutup, JS menambahkan kelas .translate-y-4 → kita geser 100%. */
+            #chatContainer.translate-y-4 { transform: translateY(100%); }
+
+            /* Saat sedang di-drag (swipe-to-close), matikan transition agar mengikuti jari */
+            #chatContainer.is-dragging { transition: none !important; }
+
+            /* Drag handle: perbesar area sentuh & beri kesan dapat ditarik */
+            #chatDragHandle { cursor: grab; touch-action: none; padding-top: 10px; padding-bottom: 6px; }
+            #chatDragHandle:active { cursor: grabbing; }
+            #chatDragHandle > div { width: 2.75rem; height: 5px; }
+
+            /* Area input: hormati home-indicator iPhone + posisikan aman dari gesture bar */
+            #chatInputArea {
+                padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+            }
+
+            /* iOS akan auto-zoom bila font input < 16px. Naikkan ke 16px khusus mobile. */
+            #userInput { font-size: 16px; line-height: 1.45; }
+
+            /* Perbesar touch target tombol header (rekomendasi ≥ 40px) */
+            #chatHeaderActions button { padding: 7px; }
+            #chatHeaderActions { gap: 0.125rem; }
+
+            /* Perbesar touch target toolbar aksi (Bacakan/Salin/Like/Dislike) */
+            [data-action-bar] button { padding: 8px; }
+
+            /* Chips saran: scroll momentum + sembunyikan scrollbar agar bersih */
+            #suggestions {
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                scroll-snap-type: x proximity;
+            }
+            #suggestions::-webkit-scrollbar { display: none; }
+
+            /* Bubble bisa sedikit lebih lebar di layar sempit agar teks lega */
+            #chatHistory > div[data-sender] { max-width: 90%; }
+
+            /* Toast: pindah ke atas-tengah, full-width aman, hormati notch */
+            #toast {
+                left: 12px;
+                right: 12px;
+                top: calc(env(safe-area-inset-top, 0px) + 12px);
+                justify-content: center;
+            }
+
+            /* Floating toggle button: angkat dari home-indicator */
+            #chatToggle {
+                bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+                right: 16px;
+            }
+
+            /* Header chat: rapikan agar judul tidak mendorong tombol keluar layar */
+            #chatHeaderTitle { min-width: 0; }
+            #chatHeaderTitle h3,
+            #chatHeaderTitle p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+            /* Modal di dalam widget: beri ruang aman & lebar penuh nyaman */
+            #modalBackdrop { padding: 12px; }
+        }
+
+        /* Layar sangat kecil (≤ 360px): sedikit rapatkan agar tetap rapi */
+        @media (max-width: 360px) {
+            #chatHeaderActions button { padding: 6px; }
+        }
+
+        /* Hormati preferensi reduce-motion (aksesibilitas) */
+        @media (prefers-reduced-motion: reduce) {
+            .chat-widget-transition, #chatScrim, #chatContainer { transition: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-umb-bg text-gray-800 flex flex-col min-h-screen">
+
+    <!-- Navbar -->
+    <nav class="bg-white border-b shadow-sm sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Logo -->
+                <div class="flex-shrink-0 flex items-center cursor-pointer gap-2.5 min-w-0">
+                    <img src="{{ url_for('static', filename='umb-logo.png') }}" alt="Logo UMBandung" class="h-10 flex-shrink-0" onerror="this.src='https://upload.wikimedia.org/wikipedia/id/8/87/Logo_Universitas_Muhammadiyah_Bandung.png'">
+                    <div class="hidden lg:block">
+                        <h1 class="font-bold text-umb-navy text-sm leading-tight whitespace-nowrap">Universitas Muhammadiyah<br>Bandung</h1>
+                    </div>
+                </div>
+
+                <!-- Desktop Menu -->
+                <div class="hidden xl:flex items-center gap-1 mx-4">
+                    <a href="#" class="text-umb-primary font-semibold border-b-2 border-umb-primary pb-0.5 px-2 py-1 text-sm whitespace-nowrap">Beranda</a>
+                    
+                    <div class="relative group cursor-pointer">
+                        <a href="#" class="text-gray-600 hover:text-umb-primary font-medium flex items-center gap-0.5 px-2 py-1 rounded-md hover:bg-gray-50 text-sm whitespace-nowrap transition">
+                            Tentang UMBandung
+                            <svg class="w-3.5 h-3.5 text-gray-400 group-hover:text-umb-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </a>
+                    </div>
+
+                    <div class="relative group cursor-pointer">
+                        <a href="#" class="text-gray-600 hover:text-umb-primary font-medium flex items-center gap-0.5 px-2 py-1 rounded-md hover:bg-gray-50 text-sm whitespace-nowrap transition">
+                            Akademik
+                            <svg class="w-3.5 h-3.5 text-gray-400 group-hover:text-umb-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </a>
+                    </div>
+
+                    <div class="relative group cursor-pointer">
+                        <a href="#" class="text-gray-600 hover:text-umb-primary font-medium flex items-center gap-0.5 px-2 py-1 rounded-md hover:bg-gray-50 text-sm whitespace-nowrap transition">
+                            Penelitian &amp; Pengabdian
+                            <svg class="w-3.5 h-3.5 text-gray-400 group-hover:text-umb-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </a>
+                    </div>
+
+                    <a href="#" class="text-gray-600 hover:text-umb-primary font-medium px-2 py-1 rounded-md hover:bg-gray-50 text-sm whitespace-nowrap transition">Fasilitas</a>
+                    <a href="#" class="text-gray-600 hover:text-umb-primary font-medium px-2 py-1 rounded-md hover:bg-gray-50 text-sm whitespace-nowrap transition">Kabar UMBdg</a>
+                    <a href="#" class="text-gray-600 hover:text-umb-primary font-medium px-2 py-1 rounded-md hover:bg-gray-50 text-sm whitespace-nowrap transition">Karir</a>
+                </div>
+
+                <!-- CTA Button -->
+                <div class="hidden xl:flex items-center flex-shrink-0">
+                    <a href="#" class="bg-umb-purple hover:bg-opacity-90 text-white font-bold py-2 px-5 rounded-full transition duration-300 shadow-md text-sm whitespace-nowrap">
+                        Informasi PMB
+                    </a>
+                </div>
+
+                <!-- Mobile menu button (shown below xl) -->
+                <div class="xl:hidden flex items-center">
+                    <button class="text-gray-600 hover:text-umb-primary focus:outline-none p-1">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+        <!-- Breadcrumb / Header Title -->
+        <div class="mb-6">
+            <h2 class="text-3xl font-serif-display font-bold text-umb-navy">Kabar UMBdg</h2>
+            <div class="w-16 h-1 bg-umb-gold mt-2 rounded"></div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Left Column (Main News) -->
+            <div class="lg:col-span-2 space-y-8">
+                <!-- Highlighted News -->
+                <div class="relative rounded-xl overflow-hidden shadow-lg group cursor-pointer bg-white">
+                    <img src="{{ url_for('static', filename='UM-Bandung.jpeg') }}" alt="Kampus UMBandung" class="w-full h-[400px] object-cover transition duration-500 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1562774053-701939374585?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80'">
+                    <div class="absolute top-4 left-4 z-10">
+                        <span class="bg-umb-red text-white text-xs font-bold px-3 py-1 rounded shadow-md tracking-wider">BERITA UTAMA</span>
+                    </div>
+                    <div class="absolute inset-0 bg-gradient-to-t from-umb-navy via-umb-navy/40 to-transparent"></div>
+                    <div class="absolute bottom-0 left-0 p-6 w-full">
+                        <p class="text-umb-gold text-sm font-semibold mb-2">12 Agustus 2026</p>
+                        <h3 class="text-2xl font-bold text-white mb-2 leading-tight group-hover:text-umb-gold transition duration-300">
+                            UMBandung Raih Akreditasi BAIK SEKALI, Bukti Komitmen Mutu Pendidikan
+                        </h3>
+                        <p class="text-gray-200 text-sm hidden sm:block">
+                            Universitas Muhammadiyah Bandung terus meningkatkan kualitas layanan akademik dan prestasi mahasiswa di kancah nasional dan internasional.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Secondary News Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition duration-300 cursor-pointer group">
+                        <div class="h-48 bg-gray-200 overflow-hidden relative">
+                            <span class="absolute top-3 left-3 bg-umb-primary text-white text-[10px] font-bold px-2 py-1 rounded z-10">AKADEMIK</span>
+                            <img src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" alt="PMB UMBandung" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                        </div>
+                        <div class="p-5">
+                            <p class="text-gray-500 text-xs mb-1">10 Agustus 2026</p>
+                            <h4 class="font-bold text-umb-navy group-hover:text-umb-primary transition duration-300 line-clamp-2">
+                                PMB 2026 Dibuka, Daftar Sekarang di pmb.umbandung.ac.id
+                            </h4>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition duration-300 cursor-pointer group">
+                        <div class="h-48 bg-gray-200 overflow-hidden relative">
+                            <span class="absolute top-3 left-3 bg-umb-primary text-white text-[10px] font-bold px-2 py-1 rounded z-10">BERITA KAMPUS</span>
+                            <img src="{{ url_for('static', filename='Beritakampus.jpg') }}" alt="Berita Kampus UMBandung" class="w-full h-full object-cover group-hover:scale-105 transition duration-500" onerror="this.src='https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80'">
+                        </div>
+                        <div class="p-5">
+                            <p class="text-gray-500 text-xs mb-1">Apr 23, 2026</p>
+                            <h4 class="font-bold text-umb-navy group-hover:text-umb-primary transition duration-300 line-clamp-2">
+                                Capaian Unggul Bioteknologi UM Bandung Dorong Penguatan Kualitas Akademik
+                            </h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column (Sidebar) -->
+            <div class="lg:col-span-1 space-y-6">
+
+                <!-- Rector Card -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="bg-umb-navy px-5 py-4 border-b border-gray-200">
+                        <h3 class="font-bold text-white flex items-center gap-2">
+                            <svg class="w-5 h-5 text-umb-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                            PIMPINAN
+                        </h3>
+                    </div>
+                    <div class="flex flex-col items-center p-5 text-center">
+                        <img src="{{ url_for('static', filename='rektor_umb.png') }}" alt="Rektor Universitas Muhammadiyah Bandung" class="w-36 h-36 object-cover rounded-full shadow-md mb-4 border-4 border-umb-gold" onerror="this.style.display='none'">
+                        <h4 class="font-bold text-umb-navy text-sm leading-tight mb-1">Rektor Universitas Muhammadiyah Bandung</h4>
+                        <p class="text-xs text-gray-500">Universitas Muhammadiyah Bandung</p>
+                        <div class="mt-3 w-8 h-0.5 bg-umb-gold rounded mx-auto"></div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden sticky top-20">
+                    <div class="bg-umb-navy px-5 py-4 border-b border-gray-200">
+                        <h3 class="font-bold text-white flex items-center gap-2">
+                            <svg class="w-5 h-5 text-umb-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            SOROTAN BERITA
+                        </h3>
+                    </div>
+                    <div class="p-5 flex flex-col gap-5">
+                        
+                        <div class="group cursor-pointer flex gap-4">
+                            <div class="text-umb-gold font-bold text-2xl font-serif-display">01</div>
+                            <div>
+                                <h4 class="text-sm font-semibold text-umb-navy group-hover:text-umb-primary transition duration-200 line-clamp-2">
+                                    UMBandung Masuk Top 100 Kampus Muhammadiyah Terbaik Indonesia.
+                                </h4>
+                                <p class="text-xs text-gray-500 mt-1">05 Agustus 2026</p>
+                            </div>
+                        </div>
+
+                        <div class="group cursor-pointer flex gap-4">
+                            <div class="text-umb-gold font-bold text-2xl font-serif-display">02</div>
+                            <div>
+                                <h4 class="text-sm font-semibold text-umb-navy group-hover:text-umb-primary transition duration-200 line-clamp-2">
+                                    Pembukaan Gedung Baru Fakultas Teknik — Fasilitas Modern untuk Mahasiswa.
+                                </h4>
+                                <p class="text-xs text-gray-500 mt-1">02 Agustus 2026</p>
+                            </div>
+                        </div>
+
+                        <div class="group cursor-pointer flex gap-4">
+                            <div class="text-umb-gold font-bold text-2xl font-serif-display">03</div>
+                            <div>
+                                <h4 class="text-sm font-semibold text-umb-navy group-hover:text-umb-primary transition duration-200 line-clamp-2">
+                                    Dosen UMBandung Raih Hibah Penelitian Internasional dari DIKTI.
+                                </h4>
+                                <p class="text-xs text-gray-500 mt-1">29 Juli 2026</p>
+                            </div>
+                        </div>
+
+                        <div class="group cursor-pointer flex gap-4">
+                            <div class="text-umb-gold font-bold text-2xl font-serif-display">04</div>
+                            <div>
+                                <h4 class="text-sm font-semibold text-umb-navy group-hover:text-umb-primary transition duration-200 line-clamp-2">
+                                    Program Beasiswa Penuh untuk Mahasiswa Berprestasi Tahun Akademik 2026/2027.
+                                </h4>
+                                <p class="text-xs text-gray-500 mt-1">25 Juli 2026</p>
+                            </div>
+                        </div>
+
+                    </div>
+                    <div class="bg-gray-50 px-5 py-3 border-t border-gray-100 text-center">
+                        <a href="#" class="text-sm font-semibold text-umb-primary hover:text-umb-light transition">Lihat Semua Berita &rarr;</a>
+                    </div>
+                </div>
+            </div><!-- end right column -->
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-umb-navy text-gray-300 mt-auto border-t-4 border-umb-gold">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-6">
+                <div class="flex items-center gap-3">
+                    <img src="{{ url_for('static', filename='umb-logo.png') }}" alt="Logo UMBandung" class="h-10 grayscale brightness-200" onerror="this.src='https://upload.wikimedia.org/wikipedia/id/8/87/Logo_Universitas_Muhammadiyah_Bandung.png'">
+                    <div>
+                        <h4 class="font-bold text-white leading-tight">Universitas Muhammadiyah Bandung</h4>
+                        <p class="text-xs text-gray-400">Islamic Technopreneurial University</p>
+                    </div>
+                </div>
+                
+                <div class="flex space-x-4">
+                    <a href="https://x.com/umbandung" target="_blank" class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-umb-primary transition text-white">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                    </a>
+                    <a href="https://www.instagram.com/umbandung" target="_blank" class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-umb-primary transition text-white">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                    </a>
+                    <a href="https://www.youtube.com/@umbandung" target="_blank" class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-umb-primary transition text-white">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                    </a>
+                </div>
+            </div>
+            <div class="mt-8 text-center text-xs text-gray-500 border-t border-gray-700 pt-6">
+                &copy; 2026 Universitas Muhammadiyah Bandung. Hak Cipta Dilindungi Undang-Undang.
+            </div>
+        </div>
+    </footer>
+
+    <!-- ========================================== -->
+    <!-- AI CHATBOT WIDGET SECTION (PRESERVED LOGIC)-->
+    <!-- ========================================== -->
+
+    <!-- Scrim / backdrop di belakang bottom-sheet (hanya tampil di mobile) -->
+    <div id="chatScrim" class="fixed inset-0 bg-black/40 z-40 opacity-0 pointer-events-none sm:hidden"></div>
+
+    <!-- Chat Toggle Button -->
+    <button id="chatToggle" class="fixed bottom-6 right-6 w-14 h-14 bg-umb-primary hover:bg-umb-light text-white rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 z-50 focus:outline-none hover:scale-110">
+        <svg id="chatIcon" class="w-7 h-7 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+        <svg id="closeIcon" class="w-7 h-7 hidden transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        <span class="absolute -top-1 -right-1 flex h-4 w-4">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-umb-gold opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-4 w-4 bg-umb-gold border-2 border-white"></span>
+        </span>
+    </button>
+
+    <!-- Chat Window Container -->
+    <div id="chatContainer" class="fixed z-50 opacity-0 pointer-events-none translate-y-4 chat-widget-transition bg-white shadow-2xl flex flex-col border border-gray-200 overflow-hidden
+        bottom-0 right-0 left-0 h-[85vh] rounded-t-2xl rounded-b-none
+        sm:bottom-24 sm:right-6 sm:left-auto sm:w-[455px] sm:h-[600px] sm:max-h-[80vh] sm:max-w-[calc(100vw-3rem)] sm:rounded-2xl">
+
+        <!-- Mobile drag handle indicator (visible only on mobile) -->
+        <div id="chatDragHandle" class="sm:hidden flex justify-center pt-2 pb-0 shrink-0">
+            <div class="w-10 h-1 bg-gray-300 rounded-full"></div>
+        </div>
+        
+        <!-- User Type Selection Overlay -->
+        <div id="userTypeOverlay" class="hidden absolute inset-0 z-40 flex flex-col items-center justify-center p-6 rounded-2xl" style="background: rgba(255,255,255,0.98); backdrop-filter: blur(4px);">
+            <div class="w-16 h-16 bg-umb-primary/10 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                <svg class="w-8 h-8 text-umb-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            </div>
+            <h3 class="font-bold text-lg text-umb-navy mb-1 text-center">Selamat Datang! 👋</h3>
+            <p class="text-sm text-gray-500 text-center mb-6 leading-relaxed">Sebelum memulai, mohon pilih kategori Anda agar kami dapat melayani dengan lebih baik.</p>
+            <div class="flex flex-col gap-3 w-full max-w-[260px]">
+                <button onclick="setUserType('Mahasiswa')" class="w-full flex items-center gap-3 bg-umb-primary text-white py-3 px-5 rounded-xl hover:bg-umb-light transition font-semibold shadow-md text-sm">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
+                    Mahasiswa
+                </button>
+                <button onclick="setUserType('Non-Mahasiswa')" class="w-full flex items-center gap-3 bg-white text-umb-primary border-2 border-umb-primary py-3 px-5 rounded-xl hover:bg-blue-50 transition font-semibold shadow-sm text-sm">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    Non-Mahasiswa
+                </button>
+            </div>
+        </div>
+
+
+        <div id="chatTimeoutOverlay" class="hidden absolute inset-0 z-30 flex flex-col items-center justify-center p-6 rounded-2xl" style="background: rgba(255,255,255,0.97); backdrop-filter: blur(4px);">
+            <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                <svg class="w-8 h-8 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            <h3 class="font-bold text-lg text-gray-800 mb-2 text-center">Sesi Berakhir</h3>
+            <p class="text-sm text-gray-500 text-center mb-6 leading-relaxed">Karena tidak ada aktivitas selama 5 menit, sesi Anda telah berakhir untuk keamanan. Silakan mulai obrolan baru.</p>
+            <button id="restartChatFromOverlay" class="w-full max-w-[260px] bg-umb-primary text-white py-2.5 rounded-xl hover:bg-umb-light transition font-semibold shadow-md text-sm">
+                Mulai Obrolan Baru
+            </button>
+        </div>
+
+        <!-- Header -->
+        <div class="bg-umb-primary text-white px-4 py-3 sm:p-4 flex justify-between items-center rounded-t-2xl shrink-0 shadow-md z-10 relative">
+            <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-full flex items-center justify-center overflow-hidden shadow-md flex-shrink-0">
+                    <img src="{{ url_for('static', filename='icon-ai.png') }}" alt="Bot AI" class="w-full h-full object-cover" onerror="this.src='https://upload.wikimedia.org/wikipedia/id/8/87/Logo_Universitas_Muhammadiyah_Bandung.png'">
+                </div>
+                <div id="chatHeaderTitle">
+                    <h3 class="font-bold text-sm" data-translate-key="header_title">Asisten Virtual UMBandung</h3>
+                    <p class="text-xs text-umb-gold flex items-center gap-1">
+                        <span class="w-2 h-2 bg-green-400 rounded-full inline-block animate-pulse"></span>
+                        <span data-translate-key="header_subtitle">Islamic Technopreneurial University</span>
+                    </p>
+                </div>
+            </div>
+            <div id="chatHeaderActions" class="flex gap-1.5 items-center flex-shrink-0">
+                <button id="helpBtn" class="text-white hover:text-umb-gold transition focus:outline-none" title="Bantuan">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </button>
+                <!-- Zoom Controls — hidden on mobile, visible on sm+ -->
+                <div class="hidden sm:flex items-center gap-0.5 bg-white/15 rounded-lg px-1.5 py-0.5">
+                    <button id="zoomOutBtn" class="text-white hover:text-umb-gold transition focus:outline-none w-5 h-5 flex items-center justify-center rounded hover:bg-white/20" title="Perkecil Tampilan">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M20 12H4"></path></svg>
+                    </button>
+                    <span id="zoomLabel" class="text-white text-[10px] font-semibold w-7 text-center select-none">100%</span>
+                    <button id="zoomInBtn" class="text-white hover:text-umb-gold transition focus:outline-none w-5 h-5 flex items-center justify-center rounded hover:bg-white/20" title="Perbesar Tampilan">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
+                    </button>
+                </div>
+                <button id="resetBtn" class="text-white hover:text-umb-gold transition focus:outline-none" title="Reset Percakapan" aria-label="Reset Percakapan">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                </button>
+                <button id="optionsBtn" class="text-white hover:text-umb-gold transition focus:outline-none relative" title="Opsi">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
+                </button>
+                <!-- Close button — always visible, important for mobile (toggle button hidden under chat) -->
+                <button id="chatCloseBtn" class="text-white hover:text-umb-gold transition focus:outline-none ml-1" title="Tutup Chat">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            
+            <!-- Dropdown Options -->
+            <div id="optionsMenu" class="hidden absolute top-14 right-4 bg-white rounded-lg shadow-xl border border-gray-100 text-gray-700 text-sm w-48 overflow-hidden z-20">
+                <button id="exportBtn" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2 border-b border-gray-50 transition">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    <span data-translate-key="menu_export">Unduh Percakapan</span>
+                </button>
+                <button id="formalizeBtn" class="w-full text-left px-4 py-3 hover:bg-blue-50 flex items-center gap-2 transition text-umb-primary">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <span>Formalisasi Teks</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat History -->
+        <div id="chatHistory" class="flex-grow p-4 overflow-y-auto bg-gray-50 custom-scrollbar flex flex-col gap-4 relative">
+            <div class="text-center text-xs text-gray-400 my-2" data-translate-key="date_today">Hari Ini</div>
+            <!-- Initial Welcome Message gets injected via JS -->
+        </div>
+
+        <!-- Suggestions Section -->
+        <div id="suggestions" class="px-4 py-2 bg-white border-t border-gray-100 overflow-x-auto whitespace-nowrap custom-scrollbar shrink-0 hidden">
+            <!-- Chips injected via JS -->
+        </div>
+
+        <!-- Input Area -->
+        <div id="chatInputArea" class="p-3 bg-white border-t border-gray-200 shrink-0 relative">
+            <!-- Autocomplete list -->
+            <div id="autocompleteList" class="hidden absolute bottom-full left-0 w-full bg-white border border-gray-200 shadow-lg rounded-t-lg max-h-40 overflow-y-auto z-10 custom-scrollbar"></div>
+            
+            <form id="chatForm" class="relative" style="display:flex; align-items:stretch;">
+                <textarea id="userInput" rows="1" maxlength="{{ max_message_length | default(300) }}" class="w-full bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-umb-primary focus:border-transparent resize-none custom-scrollbar text-sm shadow-inner transition" style="padding: 12px 52px 12px 16px; min-height:46px; line-height:1.5; display:block;" placeholder="Ketik pesan..." required></textarea>
+                <button type="submit" id="sendBtn" class="bg-umb-primary text-white rounded-xl hover:bg-umb-light focus:outline-none transition-colors shadow disabled:opacity-50 flex items-center justify-center flex-shrink-0" style="position:absolute; right:6px; bottom:6px; width:34px; height:34px;">
+                    <svg class="w-4 h-4" style="transform:rotate(90deg);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                </button>
+            </form>
+            <!-- Penghitung karakter + status cooldown -->
+            <div class="flex items-center justify-between mt-1 px-1">
+                <span id="cooldownNotice" class="text-[10px] text-umb-primary hidden"></span>
+                <span id="charCounter" class="text-[10px] text-gray-400 ml-auto">0/{{ max_message_length | default(300) }}</span>
+            </div>
+            <div class="text-center mt-2 flex items-center justify-center gap-2">
+                <span class="text-[10px] text-gray-400">Asisten Virtual UMBandung v1.0 | <span id="typingIndicator" class="hidden italic text-umb-primary">Mengetik...</span></span>
+                <span class="text-[10px] text-gray-300">|</span>
+                <span class="text-[10px] text-gray-400 flex items-center gap-1">
+                    Powered by
+                    <img src="{{ url_for('static', filename='Google-Gemini-Logo.png') }}" alt="Gemini" style="height:24px; width:auto; display:inline-block; vertical-align:middle;">
+                </span>
+            </div>
+        </div>
+
+        <!-- Modals — dikurung DI DALAM widget chat (absolute + dipotong oleh overflow-hidden container) -->
+        <div id="modalBackdrop" class="absolute inset-0 bg-black/50 z-[60] hidden transition-opacity opacity-0 flex items-center justify-center backdrop-blur-sm p-4 overflow-y-auto">
+        
+        <!-- Help Modal -->
+        <div id="helpModal" class="bg-white rounded-xl shadow-2xl max-w-sm w-full hidden transform scale-95 transition-transform overflow-hidden">
+            <!-- Header -->
+            <div class="bg-umb-navy px-5 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-umb-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <h3 class="font-bold text-white text-sm" data-translate-key="help_title">Pusat Bantuan</h3>
+                </div>
+                <button class="close-modal text-white/60 hover:text-white focus:outline-none transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <!-- Body -->
+            <div class="p-5 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+
+                <!-- Subtitle -->
+                <p class="text-xs text-gray-500 leading-relaxed" data-translate-key="help_desc">Asisten virtual siap membantu informasi seputar Universitas Muhammadiyah Bandung. Pelajari fitur-fitur berikut agar pengalaman Anda lebih optimal.</p>
+
+                <!-- Tips singkat -->
+                <div class="flex gap-2">
+                    <div class="flex-1 bg-umb-primary/5 border border-umb-primary/15 rounded-lg px-3 py-2 flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-umb-primary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+                        <span class="text-[11px] text-gray-600">Gunakan bahasa yang jelas &amp; ringkas</span>
+                    </div>
+                    <div class="flex-1 bg-umb-primary/5 border border-umb-primary/15 rounded-lg px-3 py-2 flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-umb-primary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span class="text-[11px] text-gray-600">Pilih FAQ untuk respons cepat</span>
+                    </div>
+                </div>
+
+                <!-- Divider label -->
+                <div class="flex items-center gap-2">
+                    <div class="flex-1 h-px bg-gray-100"></div>
+                    <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Fitur</span>
+                    <div class="flex-1 h-px bg-gray-100"></div>
+                </div>
+
+                <!-- Feature Grid 2 col -->
+                <div class="grid grid-cols-2 gap-2">
+                    <!-- Bacakan -->
+                    <div class="flex items-start gap-2.5 bg-gray-50 rounded-lg p-2.5">
+                        <div class="w-7 h-7 rounded-md bg-blue-100 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-gray-700">Bacakan</p>
+                            <p class="text-[10px] text-gray-400 leading-tight mt-0.5">Dengarkan jawaban via text-to-speech</p>
+                        </div>
+                    </div>
+                    <!-- Salin -->
+                    <div class="flex items-start gap-2.5 bg-gray-50 rounded-lg p-2.5">
+                        <div class="w-7 h-7 rounded-md bg-blue-100 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-gray-700">Salin</p>
+                            <p class="text-[10px] text-gray-400 leading-tight mt-0.5">Salin teks jawaban ke clipboard</p>
+                        </div>
+                    </div>
+                    <!-- Membantu -->
+                    <div class="flex items-start gap-2.5 bg-green-50 rounded-lg p-2.5">
+                        <div class="w-7 h-7 rounded-md bg-green-100 flex items-center justify-center flex-shrink-0">
+                            <img src="{{ url_for('static', filename='like-icon.png') }}" class="w-3.5 h-3.5 object-contain" onerror="this.outerHTML='<svg class=\'w-3.5 h-3.5\' fill=\'none\' stroke=\'currentColor\' viewBox=\'0 0 24 24\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5\'></path></svg>'">
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-gray-700">Membantu</p>
+                            <p class="text-[10px] text-gray-400 leading-tight mt-0.5">Tandai jika jawaban berguna</p>
+                        </div>
+                    </div>
+                    <!-- Masukan -->
+                    <div class="flex items-start gap-2.5 bg-red-50 rounded-lg p-2.5">
+                        <div class="w-7 h-7 rounded-md bg-red-100 flex items-center justify-center flex-shrink-0">
+                            <img src="{{ url_for('static', filename='dislike-icon.png') }}" class="w-3.5 h-3.5 object-contain" onerror="this.outerHTML='<svg class=\'w-3.5 h-3.5\' fill=\'none\' stroke=\'currentColor\' viewBox=\'0 0 24 24\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5\'></path></svg>'">
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-gray-700">Masukan</p>
+                            <p class="text-[10px] text-gray-400 leading-tight mt-0.5">Beri saran jika jawaban kurang tepat</p>
+                        </div>
+                    </div>
+                    <!-- Formalisasi Teks -->
+                    <div class="flex items-start gap-2.5 bg-blue-50 rounded-lg p-2.5">
+                        <div class="w-7 h-7 rounded-md bg-umb-primary/15 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-3.5 h-3.5 text-umb-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-gray-700">Formalisasi Teks</p>
+                            <p class="text-[10px] text-gray-400 leading-tight mt-0.5">Buat teks formal dari percakapan via menu</p>
+                        </div>
+                    </div>
+                    <!-- Sesi -->
+                    <div class="flex items-start gap-2.5 bg-yellow-50 rounded-lg p-2.5">
+                        <div class="w-7 h-7 rounded-md bg-yellow-100 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-3.5 h-3.5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-gray-700">Sesi Otomatis</p>
+                            <p class="text-[10px] text-gray-400 leading-tight mt-0.5">Berakhir setelah 5 menit tidak aktif</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Divider: Cara Kerja Cerdas -->
+                <div class="flex items-center gap-2">
+                    <div class="flex-1 h-px bg-gray-100"></div>
+                    <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Cara Kerja Cerdas</span>
+                    <div class="flex-1 h-px bg-gray-100"></div>
+                </div>
+
+                <!-- Autocomplete Feature -->
+                <div class="flex items-start gap-3 bg-indigo-50 border border-indigo-100 rounded-lg p-3">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-[11px] font-bold text-indigo-700 mb-0.5">✨ Saran Kata Otomatis</p>
+                        <p class="text-[10px] text-gray-500 leading-relaxed">Cukup ketik <strong>3 huruf atau lebih</strong> — chatbot langsung menyarankan kata atau topik yang relevan (contoh: ketik "bea" → muncul "beasiswa", ketik "krs" → muncul "KRS Online"). Pilih saran agar lebih cepat tanpa harus mengetik lengkap.</p>
+                    </div>
+                </div>
+
+                <!-- Follow-up Suggestion Feature -->
+                <div class="flex items-start gap-3 bg-teal-50 border border-teal-100 rounded-lg p-3">
+                    <div class="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <svg class="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-[11px] font-bold text-teal-700 mb-0.5">💬 Pertanyaan Lanjutan Otomatis</p>
+                        <p class="text-[10px] text-gray-500 leading-relaxed">Setelah menerima jawaban, muncul <strong>tombol pertanyaan terkait</strong> di bawah chat. Cukup klik tombol tersebut untuk melanjutkan percakapan — tidak perlu mengetik ulang.</p>
+                    </div>
+                </div>
+
+                <!-- Local Knowledge Base Feature -->
+                <div class="flex items-start gap-3 bg-emerald-50 border border-emerald-100 rounded-lg p-3">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582 4-8 4m0 5c0 2.21 3.582 4 8 4s8-1.79 8-4"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-[11px] font-bold text-emerald-700 mb-0.5">⚡ Jawaban Cepat & Akurat</p>
+                        <p class="text-[10px] text-gray-500 leading-relaxed">Pertanyaan umum seputar UMBandung (PMB, jadwal, biaya, dll.) langsung dijawab dari <strong>data resmi kampus</strong> — hasilnya lebih cepat &amp; tepat. Jika informasi belum tersedia, chatbot otomatis mencari jawaban dari sumber yang lebih luas.</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Reset Confirm Modal -->
+        <div id="resetModal" class="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 hidden transform scale-95 transition-transform text-center">
+            <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-umb-red" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            </div>
+            <h3 class="font-bold text-lg text-gray-800 mb-2" data-translate-key="reset_title">Mulai Ulang Sesi?</h3>
+            <p class="text-sm text-gray-500 mb-6" data-translate-key="reset_desc">Semua riwayat percakapan saat ini akan dihapus permanen.</p>
+            <div class="flex gap-3">
+                <button class="close-modal flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium" data-translate-key="btn_cancel">Batal</button>
+                <button id="confirmResetBtn" class="flex-1 px-4 py-2 bg-umb-red text-white rounded-lg hover:bg-red-700 transition font-medium" data-translate-key="btn_confirm">Ya, Hapus</button>
+            </div>
+        </div>
+
+        <!-- Feedback Modal -->
+        <div id="feedbackModal" class="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 hidden transform scale-95 transition-transform">
+            <h3 class="font-bold text-lg text-umb-navy mb-2" data-translate-key="feedback_title">Berikan Umpan Balik</h3>
+            <p class="text-sm text-gray-500 mb-4" data-translate-key="feedback_desc">Bantu kami meningkatkan respons asisten virtual ini.</p>
+            <textarea id="feedbackText" rows="3" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-umb-primary text-sm mb-4 resize-none custom-scrollbar" placeholder="Ketik alasan atau saran Anda di sini..." data-translate-placeholder="feedback_placeholder"></textarea>
+            <div class="flex gap-3">
+                <button class="close-modal flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium" data-translate-key="btn_cancel">Batal</button>
+                <button id="submitFeedbackBtn" class="flex-1 px-4 py-2 bg-umb-primary text-white rounded-lg hover:bg-umb-light transition font-medium flex items-center justify-center gap-2">
+                    <span data-translate-key="btn_send">Kirim</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Formalize Text Modal -->
+        <div id="formalizeModal" class="bg-white rounded-xl shadow-2xl max-w-sm w-full hidden transform scale-95 transition-transform overflow-hidden">
+            <!-- Header -->
+            <div class="bg-umb-navy px-5 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-umb-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <h3 class="font-bold text-white text-sm">Formalisasi Teks</h3>
+                </div>
+                <button class="close-modal text-white/60 hover:text-white focus:outline-none transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <!-- Body -->
+            <div class="p-5 space-y-4">
+                <p class="text-xs text-gray-500 leading-relaxed">Ubah inti percakapan menjadi teks formal yang siap digunakan — bisa berupa pesan, surat singkat, atau permohonan.</p>
+
+                <!-- Target Type Selector -->
+                <div>
+                    <p class="text-xs font-semibold text-gray-600 mb-2">Ditujukan kepada:</p>
+                    <div class="flex gap-2" id="formalizeTargetBtns">
+                        <button data-target="dosen" class="formalize-target-btn flex-1 py-2 px-2 text-xs rounded-lg border-2 border-umb-primary/30 bg-blue-50 text-umb-primary font-semibold hover:border-umb-primary transition focus:outline-none">
+                            🎓 Dosen
+                        </button>
+                        <button data-target="kampus" class="formalize-target-btn flex-1 py-2 px-2 text-xs rounded-lg border-2 border-umb-primary/30 bg-blue-50 text-umb-primary font-semibold hover:border-umb-primary transition focus:outline-none">
+                            🏛️ Kampus
+                        </button>
+                        <button data-target="umum" class="formalize-target-btn flex-1 py-2 px-2 text-xs rounded-lg border-2 border-umb-primary bg-umb-primary text-white font-semibold transition focus:outline-none active-target">
+                            🌐 Umum
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Generate Button -->
+                <button id="generateFormalizeBtn" class="w-full py-2.5 bg-umb-primary text-white text-sm rounded-lg hover:bg-umb-light transition font-semibold flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    <span id="generateFormalizeLabel">Buat Teks Formal</span>
+                </button>
+
+                <!-- Empty State (shown before generate) -->
+                <div id="formalizeEmptyState" class="flex flex-col items-center justify-center py-5 text-center bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                    <svg class="w-8 h-8 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <p class="text-xs text-gray-400 font-medium">Teks formal akan muncul di sini</p>
+                    <p class="text-[10px] text-gray-300 mt-0.5">Pilih tujuan, lalu klik tombol di atas</p>
+                </div>
+
+                <!-- Result Area (hidden until generated) -->
+                <div id="formalizeResult" class="hidden">
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-48 overflow-y-auto custom-scrollbar mb-3">
+                        <p id="formalizeResultText" class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed"></p>
+                    </div>
+                    <!-- Disclaimer -->
+                    <div class="flex items-start gap-2 bg-yellow-50 border border-yellow-200 rounded-lg p-2.5 mb-3">
+                        <svg class="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <p class="text-[11px] text-yellow-700 leading-relaxed">Teks ini dibuat otomatis. Mohon periksa kembali isi, nama, dan detail sebelum digunakan.</p>
+                    </div>
+                    <!-- Copy Result Button -->
+                    <button id="copyFormalizeBtn" class="w-full py-2 bg-white border border-umb-primary text-umb-primary text-sm rounded-lg hover:bg-blue-50 transition font-semibold flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        Salin Teks
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Session Timeout Modal -->
+        <div id="sessionTimeoutModal" class="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 hidden transform scale-95 transition-transform text-center">
+             <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            <h3 class="font-bold text-lg text-gray-800 mb-2" data-translate-key="timeout_title">Sesi Berakhir</h3>
+            <p class="text-sm text-gray-500 mb-6" data-translate-key="timeout_desc">Karena tidak ada aktivitas, sesi Anda telah berakhir untuk keamanan. Silakan mulai obrolan baru.</p>
+            <button id="restartChatBtn" class="w-full bg-umb-primary text-white py-2 rounded-lg hover:bg-umb-light transition font-medium" data-translate-key="btn_restart">Mulai Obrolan Baru</button>
+        </div>
+
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-4 right-4 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 transform translate-x-full opacity-0 transition-all duration-300 z-[70]">
+        <svg id="toastIconSuccess" class="w-5 h-5 text-green-400 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+        <svg id="toastIconError" class="w-5 h-5 text-red-400 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <span id="toastMsg" class="text-sm font-medium">Pesan</span>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- PRESERVED JAVASCRIPT LOGIC                 -->
+    <!-- ========================================== -->
+    <script>
+        // DOM Elements
+        const chatToggle = document.getElementById('chatToggle');
+        const chatIcon = document.getElementById('chatIcon');
+        const closeIcon = document.getElementById('closeIcon');
+        const chatContainer = document.getElementById('chatContainer');
+        const chatHistory = document.getElementById('chatHistory');
+
+        // Mobile close button inside header — mirrors chatToggle behaviour
+        const chatCloseBtn = document.getElementById('chatCloseBtn');
+        if (chatCloseBtn) {
+            chatCloseBtn.addEventListener('click', () => chatToggle.click());
+        }
+        const chatForm = document.getElementById('chatForm');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const optionsBtn = document.getElementById('optionsBtn');
+        const optionsMenu = document.getElementById('optionsMenu');
+        const resetBtn = document.getElementById('resetBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const suggestionsContainer = document.getElementById('suggestions');
+        const autocompleteList = document.getElementById('autocompleteList');
+        
+        // Modals
+        const modalBackdrop = document.getElementById('modalBackdrop');
+        const helpBtn = document.getElementById('helpBtn');
+        const helpModal = document.getElementById('helpModal');
+        const resetModal = document.getElementById('resetModal');
+        const confirmResetBtn = document.getElementById('confirmResetBtn');
+        const feedbackModal = document.getElementById('feedbackModal');
+        const feedbackText = document.getElementById('feedbackText');
+        const submitFeedbackBtn = document.getElementById('submitFeedbackBtn');
+        const sessionTimeoutModal = document.getElementById('sessionTimeoutModal');
+        const restartChatBtn = document.getElementById('restartChatBtn');
+        const closeBtnElements = document.querySelectorAll('.close-modal');
+
+        // State Variables
+        let isChatOpen = false;
+        let isWaitingForResponse = false;
+        let feedbackContext = { messageId: null, action: null };
+        let sessionTimer;
+        const SESSION_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+        let autocompleteDebounceTimer;
+
+        // --- Anti-Abuse (klien): nilai disinkronkan dari server lewat template ---
+        const MAX_MESSAGE_LENGTH = {{ max_message_length | default(300) }};
+        const COOLDOWN_SECONDS = {{ cooldown_seconds | default(4) }};
+        const COOLDOWN_KEY = 'umb_cooldown_until'; // localStorage: epoch ms kapan cooldown berakhir
+        const charCounter = document.getElementById('charCounter');
+        const cooldownNotice = document.getElementById('cooldownNotice');
+        let cooldownTimer = null;
+
+        // Sumber kebenaran cooldown sisi-klien adalah localStorage, sehingga
+        // hitungan mundur tetap berjalan walau halaman di-refresh/reload.
+        function getCooldownRemainingMs() {
+            const until = parseInt(localStorage.getItem(COOLDOWN_KEY) || '0', 10);
+            const diff = until - Date.now();
+            return diff > 0 ? diff : 0;
+        }
+
+        function startCooldown(seconds) {
+            const until = Date.now() + Math.max(0, seconds) * 1000;
+            const existing = parseInt(localStorage.getItem(COOLDOWN_KEY) || '0', 10);
+            // Jangan perpendek cooldown yang sedang berjalan (mis. dari server).
+            localStorage.setItem(COOLDOWN_KEY, String(Math.max(existing, until)));
+            runCooldownTick();
+        }
+
+        function runCooldownTick() {
+            if (cooldownTimer) { clearInterval(cooldownTimer); cooldownTimer = null; }
+            const tick = () => {
+                const remainMs = getCooldownRemainingMs();
+                if (remainMs <= 0) {
+                    if (cooldownTimer) { clearInterval(cooldownTimer); cooldownTimer = null; }
+                    cooldownNotice.classList.add('hidden');
+                    cooldownNotice.textContent = '';
+                    // Aktifkan kembali input hanya jika tidak sedang menunggu respons.
+                    if (!isWaitingForResponse) sendBtn.disabled = false;
+                    return;
+                }
+                const secs = Math.ceil(remainMs / 1000);
+                cooldownNotice.textContent = `Tunggu ${secs} detik...`;
+                cooldownNotice.classList.remove('hidden');
+                sendBtn.disabled = true;
+            };
+            tick();
+            if (getCooldownRemainingMs() > 0) {
+                cooldownTimer = setInterval(tick, 250);
+            }
+        }
+
+        function updateCharCounter() {
+            const len = userInput.value.length;
+            charCounter.textContent = `${len}/${MAX_MESSAGE_LENGTH}`;
+            charCounter.classList.toggle('text-red-500', len >= MAX_MESSAGE_LENGTH);
+            charCounter.classList.toggle('text-gray-400', len < MAX_MESSAGE_LENGTH);
+        }
+
+        // --- Teks UI Bahasa Indonesia ---
+        const ui = {
+            header_title: "Asisten Virtual UMBandung",
+            header_subtitle: "Islamic Technopreneurial University",
+            date_today: "Hari Ini",
+            suggest_1: "Bagaimana cara mendaftar PMB 2026?",
+            suggest_2: "Apa saja program studi yang tersedia?",
+            suggest_3: "Informasi beasiswa UMBandung?",
+            suggest_4: "Lokasi dan kontak kampus?",
+            input_placeholder: "Ketik pesan...",
+            menu_reset: "Reset Percakapan",
+            menu_export: "Unduh Percakapan",
+            help_title: "Pusat Bantuan",
+            help_desc: "Asisten virtual ini siap membantu Anda dengan informasi seputar Universitas Muhammadiyah Bandung.",
+            help_list_1: "Gunakan bahasa yang jelas dan ringkas.",
+            help_list_2: "Pilih saran pertanyaan untuk respons cepat.",
+            help_list_4: "Sesi akan berakhir otomatis setelah 5 menit tidak aktif.",
+            btn_close: "Tutup",
+            reset_title: "Mulai Ulang Sesi?",
+            reset_desc: "Semua riwayat percakapan saat ini akan dihapus permanen.",
+            btn_cancel: "Batal",
+            btn_confirm: "Ya, Hapus",
+            feedback_title: "Berikan Umpan Balik",
+            feedback_desc: "Bantu kami meningkatkan respons asisten virtual ini.",
+            feedback_placeholder: "Ketik alasan atau saran Anda di sini...",
+            btn_send: "Kirim",
+            timeout_title: "Sesi Berakhir",
+            timeout_desc: "Karena tidak ada aktivitas, sesi Anda telah berakhir. Silakan mulai obrolan baru.",
+            btn_restart: "Mulai Obrolan Baru",
+            toast_copy: "Teks disalin ke clipboard",
+            toast_export_empty: "Tidak ada percakapan untuk diunduh",
+            toast_feedback_thanks: "Terima kasih atas umpan balik Anda!",
+            toast_feedback_fail: "Gagal mengirim umpan balik. Coba lagi.",
+            error_general: "Maaf, terjadi kesalahan saat memproses permintaan Anda."
+        };
+
+        function initLanguage() {
+            document.querySelectorAll('[data-translate-key]').forEach(el => {
+                const key = el.getAttribute('data-translate-key');
+                if (ui[key]) {
+                    el.innerHTML = ui[key];
+                }
+            });
+            document.querySelectorAll('[data-translate-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-translate-placeholder');
+                if (ui[key]) {
+                    el.placeholder = ui[key];
+                }
+            });
+            userInput.placeholder = ui.input_placeholder;
+            
+            // Render Suggestions (FAQ awal)
+            suggestionsContainer.innerHTML = '';
+            for(let i=1; i<=4; i++) {
+                const text = ui[`suggest_${i}`];
+                const btn = document.createElement('button');
+                btn.className = "inline-block px-3 py-1.5 mr-2 bg-blue-50 text-umb-primary border border-umb-primary/20 text-xs rounded-full hover:bg-blue-100 transition whitespace-nowrap focus:outline-none";
+                btn.textContent = text;
+                btn.onclick = () => {
+                    userInput.value = text;
+                    handleSend(new Event('submit'));
+                };
+                suggestionsContainer.appendChild(btn);
+            }
+            // BUG FIX: tampilkan container setelah chips diisi
+            suggestionsContainer.classList.remove('hidden');
+        }
+
+        // --- UI Interactions ---
+        chatToggle.addEventListener('click', () => {
+            isChatOpen = !isChatOpen;
+            if (isChatOpen) {
+                chatContainer.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+                chatIcon.classList.add('hidden');
+                closeIcon.classList.remove('hidden');
+                document.querySelector('#chatToggle span').classList.add('hidden'); // Hide ping
+
+                // Tampilkan overlay pemilihan jenis pengguna jika belum pernah dipilih.
+                // Memakai localStorage agar pilihan TETAP ADA setelah refresh / tutup-buka tab.
+                const savedUserType = localStorage.getItem('umb_user_type');
+                if (!savedUserType) {
+                    document.getElementById('userTypeOverlay').classList.remove('hidden');
+                } else {
+                    // Sinkronkan ulang ke server (cookie sesi bisa sudah kedaluwarsa / ter-reset),
+                    // tanpa menampilkan overlay lagi ke pengguna.
+                    syncUserTypeToServer(savedUserType);
+                    if (chatHistory.children.length <= 1) {
+                        showWelcomeMessage();
+                    }
+                    setTimeout(() => userInput.focus(), 300);
+                }
+                resetSessionTimer();
+            } else {
+                chatContainer.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
+                chatIcon.classList.remove('hidden');
+                closeIcon.classList.add('hidden');
+                optionsMenu.classList.add('hidden');
+                chatTimeoutOverlay.classList.add('hidden');
+            }
+        });
+
+        optionsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            optionsMenu.classList.toggle('hidden');
+        });
+        document.addEventListener('click', () => optionsMenu.classList.add('hidden'));
+
+        userInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight < 120 ? this.scrollHeight : 120) + 'px';
+
+            updateCharCounter();
+
+            // Autocomplete logic
+            clearTimeout(autocompleteDebounceTimer);
+            const val = this.value.trim();
+            if (val.length >= 2) {
+                autocompleteDebounceTimer = setTimeout(() => fetchAutocomplete(val), 300);
+            } else {
+                autocompleteList.classList.add('hidden');
+            }
+        });
+
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend(new Event('submit'));
+            }
+        });
+
+        // --- Modals Logic ---
+        function openModal(modalEl) {
+            modalBackdrop.classList.remove('hidden');
+            // Small delay for transition
+            setTimeout(() => {
+                modalBackdrop.classList.remove('opacity-0');
+                modalEl.classList.remove('hidden');
+                setTimeout(() => modalEl.classList.remove('scale-95'), 10);
+            }, 10);
+        }
+
+        function closeModal(modalEl) {
+            modalEl.classList.add('scale-95');
+            setTimeout(() => {
+                modalEl.classList.add('hidden');
+                modalBackdrop.classList.add('opacity-0');
+                setTimeout(() => modalBackdrop.classList.add('hidden'), 300);
+            }, 200);
+        }
+
+        closeBtnElements.forEach(btn => {
+            btn.addEventListener('click', () => {
+                closeModal(helpModal);
+                closeModal(resetModal);
+                closeModal(feedbackModal);
+                closeModal(formalizeModal);
+            });
+        });
+
+        helpBtn.addEventListener('click', () => openModal(helpModal));
+        resetBtn.addEventListener('click', () => openModal(resetModal));
+
+        // --- Formalize Text Feature ---
+        const formalizeBtn = document.getElementById('formalizeBtn');
+        const formalizeModal = document.getElementById('formalizeModal');
+        const generateFormalizeBtn = document.getElementById('generateFormalizeBtn');
+        const generateFormalizeLabel = document.getElementById('generateFormalizeLabel');
+        const formalizeResult = document.getElementById('formalizeResult');
+        const formalizeResultText = document.getElementById('formalizeResultText');
+        const copyFormalizeBtn = document.getElementById('copyFormalizeBtn');
+        const formalizeEmptyState = document.getElementById('formalizeEmptyState');
+        let selectedTargetType = 'umum';
+
+        // Target type button selection logic
+        document.getElementById('formalizeTargetBtns').addEventListener('click', (e) => {
+            const btn = e.target.closest('.formalize-target-btn');
+            if (!btn) return;
+            selectedTargetType = btn.dataset.target;
+            document.querySelectorAll('.formalize-target-btn').forEach(b => {
+                b.classList.remove('bg-umb-primary', 'text-white', 'border-umb-primary');
+                b.classList.add('bg-blue-50', 'text-umb-primary', 'border-umb-primary/30');
+            });
+            btn.classList.remove('bg-blue-50', 'text-umb-primary', 'border-umb-primary/30');
+            btn.classList.add('bg-umb-primary', 'text-white', 'border-umb-primary');
+            // Reset result if target changes
+            formalizeResult.classList.add('hidden');
+            formalizeEmptyState.classList.remove('hidden');
+            formalizeResultText.textContent = '';
+        });
+
+        formalizeBtn.addEventListener('click', () => {
+            optionsMenu.classList.add('hidden');
+            // Reset state before opening
+            formalizeResult.classList.add('hidden');
+            formalizeEmptyState.classList.remove('hidden');
+            formalizeResultText.textContent = '';
+            generateFormalizeLabel.textContent = 'Buat Teks Formal';
+            generateFormalizeBtn.disabled = false;
+            openModal(formalizeModal);
+        });
+
+        generateFormalizeBtn.addEventListener('click', async () => {
+            generateFormalizeBtn.disabled = true;
+            generateFormalizeLabel.textContent = 'Memproses...';
+            formalizeResult.classList.add('hidden');
+            formalizeEmptyState.classList.remove('hidden');
+            try {
+                const resp = await fetch('/formalize_text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target_type: selectedTargetType })
+                });
+                const data = await resp.json();
+                const text = data.result || data.error || 'Gagal memproses. Coba lagi.';
+                formalizeResultText.textContent = text;
+                formalizeEmptyState.classList.add('hidden');
+                formalizeResult.classList.remove('hidden');
+            } catch (err) {
+                formalizeResultText.textContent = 'Gagal terhubung ke server. Coba lagi.';
+                formalizeEmptyState.classList.add('hidden');
+                formalizeResult.classList.remove('hidden');
+            } finally {
+                generateFormalizeBtn.disabled = false;
+                generateFormalizeLabel.textContent = 'Buat Ulang';
+            }
+        });
+
+        copyFormalizeBtn.addEventListener('click', () => {
+            const text = formalizeResultText.textContent;
+            if (text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast('Teks formal disalin ke clipboard ✓');
+                }).catch(() => showToast('Gagal menyalin teks.', 'error'));
+            }
+        });
+
+        // --- Core Chat Functions ---
+        function showWelcomeMessage() {
+            // Bubble 1: Greeting
+            appendMessage('Halo! 👋 Selamat datang di <strong>Asisten Virtual UMBandung</strong>!', 'bot', 'welcome-1-' + Date.now(), false);
+
+            // Bubble 2: Context info
+            appendMessage('Saya siap membantu Anda terkait informasi <strong>akademik</strong>, <strong>PMB</strong>, maupun <strong>layanan kampus</strong> Universitas Muhammadiyah Bandung.', 'bot', 'welcome-2-' + Date.now(), false);
+
+            // Bubble 3: FAQ quick-reply chips
+            const faqs = [
+                ui.suggest_1,
+                ui.suggest_2,
+                ui.suggest_3,
+                ui.suggest_4
+            ];
+            const chips = faqs.map(q =>
+                `<button class="faq-chip px-3 py-1.5 bg-blue-50 text-umb-primary border border-umb-primary/20 text-xs rounded-full hover:bg-blue-100 transition text-left" onclick="document.getElementById('userInput').value=this.textContent.trim();handleSend(new Event('submit'))">${q}</button>`
+            ).join('');
+            appendMessage(`❓ <strong>Pertanyaan yang Sering Ditanyakan (FAQ)</strong><div class="mt-3 flex flex-wrap gap-2">${chips}</div>`, 'bot', 'welcome-3-' + Date.now(), false);
+
+            // Bubble 4: Hint to help button
+            appendMessage(
+                `💡 <strong>Tips:</strong> Ketuk ikon <span style="display:inline-flex;align-items:center;gap:3px;background:#e8f0fe;border-radius:6px;padding:1px 6px;"><svg style="width:13px;height:13px;flex-shrink:0;" fill="none" stroke="#0d4ea6" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span style="font-size:11px;font-weight:600;color:#0d4ea6;">Bantuan</span></span> di pojok kanan atas untuk mengetahui semua fitur chatbot ini — mulai dari <em>autocomplete</em>, <em>saran pertanyaan lanjutan</em>, hingga cara kerja <em>database lokal</em> UMBandung.`,
+                'bot', 'welcome-4-' + Date.now(), false
+            );
+
+            // Keep suggestions bar hidden since FAQ is now inside the welcome bubble
+            suggestionsContainer.classList.add('hidden');
+        }
+
+        // Ubah objek respons terstruktur (paragraph / list) menjadi HTML siap-tampil.
+        // Menangani juga string Python-dict ("{'type': 'paragraph', ...}") dan field footer.
+        function renderStructuredResponse(resp) {
+            // 1) Bila masih berupa string representasi dict, konversi ke objek dulu.
+            if (typeof resp === 'string') {
+                const s = resp.trim();
+                if (s.startsWith('{') && (s.includes('content') || s.includes('items'))) {
+                    try {
+                        resp = (new Function('return ' + s))();
+                    } catch (err) {
+                        console.error('Gagal memparsing respons local knowledge:', err);
+                        return resp; // tampilkan apa adanya bila gagal di-parse
+                    }
+                } else {
+                    return resp; // string biasa (sudah HTML/teks)
+                }
+            }
+
+            // 2) Bukan objek -> kembalikan sebagai teks.
+            if (typeof resp !== 'object' || resp === null) {
+                return String(resp);
+            }
+
+            // 3) Rakit HTML berdasarkan "type".
+            let html = '';
+            if (resp.type === 'list') {
+                if (resp.title) {
+                    html += '<p><strong>' + resp.title + '</strong></p>';
+                }
+                if (Array.isArray(resp.items) && resp.items.length) {
+                    html += '<ul>' + resp.items.map(function (it) {
+                        return '<li>' + it + '</li>';
+                    }).join('') + '</ul>';
+                }
+            } else {
+                // "paragraph" atau tipe lain yang memakai field content
+                html += resp.content || '';
+            }
+
+            // 4) Footer opsional ({text, link}) yang disematkan backend.
+            if (resp.footer && resp.footer.link) {
+                html += '<div style="margin-top:0.6em;font-size:0.8em;color:#6b7280;">'
+                      + '<a href="' + resp.footer.link + '" target="_blank" style="color:#1d4ed8;">'
+                      + (resp.footer.text || resp.footer.link) + '</a></div>';
+            }
+
+            // 5) Pengaman: jangan pernah menampilkan JSON mentah.
+            if (!html.trim()) {
+                html = resp.content || 'Maaf, tidak ada respons.';
+            }
+            return html;
+        }
+
+        function appendMessage(content, sender, messageId, showFeedback = true, source = null) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `flex flex-col max-w-[85%] ${sender === 'user' ? 'self-end items-end' : 'self-start items-start'} group`;
+            msgDiv.dataset.id = messageId;
+            msgDiv.dataset.sender = sender;
+
+            const bubbleClass = sender === 'user' 
+                ? 'bg-umb-light text-white rounded-2xl rounded-tr-sm shadow-sm'
+                : 'bg-white border border-gray-200 text-gray-800 rounded-2xl rounded-tl-sm shadow-sm';
+            
+            let html = `<div class="${bubbleClass} p-3 text-sm relative">`;
+            
+            if (sender === 'bot') {
+                const formattedContent = content
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\n/g, '<br>');
+                html += `<div class="bot-content leading-relaxed">${formattedContent}</div>`;
+
+                // Disclaimer — only on real responses (showFeedback = true)
+                if (showFeedback) {
+                    const isAI = source === 'api';
+                    const disclaimerIcon = isAI
+                        ? `<svg class="w-3 h-3 flex-shrink-0 mt-0.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>`
+                        : `<svg class="w-3 h-3 flex-shrink-0 mt-0.5 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+                    const disclaimerText = isAI
+                        ? `<strong>AI (Gemini)</strong> — Jawaban dihasilkan otomatis & mungkin tidak selalu akurat. Selalu konfirmasi informasi penting ke pihak kampus secara langsung.`
+                        : `<strong>Database UMBandung</strong> — Informasi bersumber dari data lokal kampus. Tetap konfirmasi ke unit terkait untuk kepastian terkini.`;
+                    html += `
+                    <div class="mt-2.5 pt-2 border-t border-gray-100 flex items-start gap-1.5">
+                        ${disclaimerIcon}
+                        <span class="text-[10px] text-gray-400 leading-snug">${disclaimerText}</span>
+                    </div>`;
+                }
+            } else {
+                html += `<div class="whitespace-pre-wrap">${content}</div>`;
+            }
+            
+            html += `</div>`;
+
+            // Action toolbar OUTSIDE the bubble, only for bot messages with showFeedback
+            if (sender === 'bot' && showFeedback) {
+                html += `
+                <div class="mt-1.5 ml-1">
+                    <!-- Action icons row -->
+                    <div class="flex items-center gap-0.5" data-action-bar="${messageId}">
+                        <!-- Bacakan -->
+                        <button class="p-1.5 rounded-full text-gray-400 hover:text-umb-primary hover:bg-blue-50 transition-all focus:outline-none" onclick="speakText(this)" title="Bacakan teks">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                        </button>
+                        <!-- Salin -->
+                        <button class="p-1.5 rounded-full text-gray-400 hover:text-umb-primary hover:bg-blue-50 transition-all focus:outline-none" onclick="copyText(this)" title="Salin teks">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        </button>
+                        <div class="w-px h-4 bg-gray-200 mx-0.5"></div>
+                        <!-- Like: icon only -->
+                        <button class="p-1.5 rounded-full text-gray-400 hover:bg-green-50 transition-all focus:outline-none like-btn" onclick="handleFeedback('${messageId}', 'like', this)" title="Jawaban membantu">
+                            <img src="{{ url_for('static', filename='like-icon.png') }}" class="w-4 h-4 object-contain" alt="like"
+                                onerror="this.outerHTML='<svg class=\'w-4 h-4\' fill=\'none\' stroke=\'currentColor\' viewBox=\'0 0 24 24\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5\'></path></svg>'">
+                        </button>
+                        <!-- Dislike: icon only -->
+                        <button class="p-1.5 rounded-full text-gray-400 hover:bg-red-50 transition-all focus:outline-none dislike-btn" onclick="handleFeedback('${messageId}', 'dislike', this)" title="Berikan masukan">
+                            <img src="{{ url_for('static', filename='dislike-icon.png') }}" class="w-4 h-4 object-contain" alt="dislike"
+                                onerror="this.outerHTML='<svg class=\'w-4 h-4\' fill=\'none\' stroke=\'currentColor\' viewBox=\'0 0 24 24\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5\'></path></svg>'">
+                        </button>
+                    </div>
+                    <!-- Tombol "Bisa lebih detail?" -->
+                    <button onclick="askMoreDetail()" class="mt-2 inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-umb-primary border border-umb-primary/20 text-[11px] font-medium rounded-full hover:bg-blue-100 transition focus:outline-none" title="Minta penjelasan lebih mendalam dari jawaban ini">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        Bisa lebih detail?
+                    </button>
+                    <!-- Inline saran box (hidden by default, muncul saat dislike diklik) -->
+                    <div id="saran-box-${messageId}" class="hidden mt-2 bg-red-50 border border-red-200 rounded-xl p-2.5 w-full max-w-[280px]">
+                        <p class="text-xs text-red-500 font-semibold mb-1.5">💬 Apa yang perlu diperbaiki?</p>
+                        <textarea id="saran-text-${messageId}" rows="2"
+                            class="w-full text-xs bg-white border border-red-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-red-400 resize-none placeholder-gray-400"
+                            placeholder="Tulis saran atau masukan Anda..."></textarea>
+                        <div class="flex gap-1.5 mt-1.5 justify-end">
+                            <button onclick="closeSaranBox('${messageId}')"
+                                class="text-xs px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-gray-500 hover:bg-gray-100 transition">Batal</button>
+                            <button onclick="submitSaran('${messageId}')"
+                                class="text-xs px-2.5 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 transition font-medium">Kirim</button>
+                        </div>
+                    </div>
+                </div>`;
+            }
+            
+            msgDiv.innerHTML = html;
+            chatHistory.appendChild(msgDiv);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        async function handleSend(e) {
+            e.preventDefault();
+            if (isWaitingForResponse) return;
+
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            // Guard cooldown sisi-klien (umpan balik instan; server tetap otoritatif).
+            const remainMs = getCooldownRemainingMs();
+            if (remainMs > 0) {
+                runCooldownTick();
+                showToast(`Mohon tunggu ${Math.ceil(remainMs / 1000)} detik sebelum mengirim lagi.`, 'error');
+                return;
+            }
+
+            // Guard panjang pesan sisi-klien (server tetap memvalidasi ulang).
+            if (text.length > MAX_MESSAGE_LENGTH) {
+                showToast(`Pesan terlalu panjang (maks. ${MAX_MESSAGE_LENGTH} karakter).`, 'error');
+                return;
+            }
+
+            // Reset UI
+            userInput.value = '';
+            userInput.style.height = 'auto';
+            updateCharCounter();
+            suggestionsContainer.classList.add('hidden');
+            autocompleteList.classList.add('hidden');
+            
+            // Append User Msg
+            appendMessage(text, 'user', 'u-' + Date.now());
+            
+            // Lock form
+            isWaitingForResponse = true;
+            sendBtn.disabled = true;
+            typingIndicator.classList.remove('hidden');
+            showTypingBubble();
+            resetSessionTimer();
+
+            try {
+                // Request to Backend
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+
+                if (!response.ok) {
+                    // Tangani penolakan terstruktur dari server (cooldown / rate-limit / terlalu panjang).
+                    let errData = null;
+                    try { errData = await response.json(); } catch (_) {}
+                    removeTypingBubble();
+
+                    if (response.status === 429 && errData) {
+                        // Sinkronkan cooldown klien dengan instruksi server bila ada.
+                        if (errData.code === 'cooldown' && errData.retry_after) {
+                            startCooldown(errData.retry_after);
+                        } else {
+                            startCooldown(COOLDOWN_SECONDS);
+                        }
+                        const msg = (errData.response && errData.response.content)
+                            ? errData.response.content.replace(/<[^>]+>/g, '')
+                            : 'Terlalu banyak permintaan. Mohon tunggu sebentar.';
+                        showToast(msg, 'error');
+                        return; // jangan tampilkan sebagai balasan bot
+                    }
+
+                    if (response.status === 400 && errData && errData.response) {
+                        appendMessage(errData.response.content, 'bot', 'warn-' + Date.now(), false);
+                        return;
+                    }
+
+                    throw new Error('Network response was not ok');
+                }
+
+                const data = await response.json();
+
+                // Sukses -> mulai cooldown klien (tahan refresh via localStorage).
+                startCooldown(COOLDOWN_SECONDS);
+                
+                // Append Bot Msg
+                const msgId = data.message_id || 'b-' + Date.now();
+                
+                // --- RENDER RESPONS LOCAL KNOWLEDGE / API ---
+                // data.response bisa berupa objek terstruktur ({type:"paragraph"|"list", ...})
+                // ATAU string. Ubah menjadi HTML siap-tampil sesuai tipenya.
+                const rawResponse = data.response || data.answer || data.content || "Maaf, tidak ada respons.";
+                let finalResponse = renderStructuredResponse(rawResponse);
+
+                removeTypingBubble();
+                // Notifikasi sistem (mis. kuota AI habis) tampil sebagai gelembung biasa
+                // tanpa toolbar feedback/disclaimer.
+                const isSystemNotice = data.source === 'system';
+                appendMessage(finalResponse, 'bot', msgId, !isSystemNotice, data.source);
+                
+                // BUG FIX: follow_ups adalah objek {message, suggestions}, bukan array
+                if (data.follow_ups && data.follow_ups.suggestions && data.follow_ups.suggestions.length > 0) {
+                    if (data.follow_ups.message) {
+                        appendMessage(data.follow_ups.message, 'bot', 'fu-msg-' + Date.now(), false);
+                    }
+                    suggestionsContainer.innerHTML = '';
+                    data.follow_ups.suggestions.forEach(sug => {
+                        const btn = document.createElement('button');
+                        btn.className = "inline-block px-3 py-1.5 mr-2 bg-blue-50 text-umb-primary border border-umb-primary/20 text-xs rounded-full hover:bg-blue-100 transition whitespace-nowrap focus:outline-none";
+                        btn.textContent = sug;
+                        btn.onclick = () => {
+                            userInput.value = sug;
+                            handleSend(new Event('submit'));
+                        };
+                        suggestionsContainer.appendChild(btn);
+                    });
+                    suggestionsContainer.classList.remove('hidden');
+                }
+
+            } catch (error) {
+                console.error('Chat error:', error);
+                removeTypingBubble();
+                appendMessage(ui.error_general, 'bot', 'err-' + Date.now(), false);
+            } finally {
+                isWaitingForResponse = false;
+                typingIndicator.classList.add('hidden');
+                removeTypingBubble();
+                // Jangan aktifkan tombol bila masih dalam cooldown.
+                if (getCooldownRemainingMs() > 0) {
+                    runCooldownTick();
+                } else {
+                    sendBtn.disabled = false;
+                }
+                userInput.focus();
+            }
+        }
+
+        // === Loading bubble (animasi "mengetik" di dalam chat) ===
+        function showTypingBubble() {
+            if (document.getElementById('typingBubble')) return; // hindari duplikat
+            const wrap = document.createElement('div');
+            wrap.id = 'typingBubble';
+            wrap.className = 'flex flex-col max-w-[85%] self-start items-start';
+            wrap.innerHTML =
+                '<div class="bg-white border border-gray-200 rounded-2xl rounded-tl-sm shadow-sm px-4 py-3">' +
+                    '<div class="typing-dots" role="status" aria-label="Asisten sedang mengetik">' +
+                        '<span></span><span></span><span></span>' +
+                    '</div>' +
+                '</div>';
+            chatHistory.appendChild(wrap);
+            scrollToBottom();
+        }
+
+        function removeTypingBubble() {
+            const el = document.getElementById('typingBubble');
+            if (el) el.remove();
+        }
+
+        // === Handler "Bisa lebih detail?" ===
+        // Mengirim frasa pemicu ke backend; chatbot_web.py otomatis mengambil
+        // pertanyaan user sebelumnya & meminta jawaban lebih mendalam,
+        // tanpa menambah history percakapan baru.
+        function askMoreDetail() {
+            if (isWaitingForResponse) return;
+            userInput.value = 'bisa lebih detail?';
+            handleSend(new Event('submit'));
+        }
+
+        chatForm.addEventListener('submit', handleSend);
+
+        // --- Fetch Autocomplete (Preserved) ---
+        async function fetchAutocomplete(query) {
+            try {
+                const response = await fetch('/autocomplete?q=' + encodeURIComponent(query));
+                if (!response.ok) return;
+                const data = await response.json();
+                // BUG FIX: backend mengembalikan array langsung, bukan {suggestions:[]}
+                if (Array.isArray(data) && data.length > 0) {
+                    autocompleteList.innerHTML = '';
+                    data.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = "px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm text-gray-700 border-b border-gray-50 last:border-0";
+                        div.textContent = item;
+                        div.onclick = () => {
+                            userInput.value = item;
+                            autocompleteList.classList.add('hidden');
+                            userInput.focus();
+                        };
+                        autocompleteList.appendChild(div);
+                    });
+                    autocompleteList.classList.remove('hidden');
+                } else {
+                    autocompleteList.classList.add('hidden');
+                }
+            } catch(e) {
+                // Ignore silent fail for autocomplete
+            }
+        }
+
+        // --- Session Timeout Logic ---
+        function resetSessionTimer() {
+            clearTimeout(sessionTimer);
+            if (isChatOpen) {
+                sessionTimer = setTimeout(() => {
+                    showChatTimeoutOverlay();
+                }, SESSION_TIMEOUT_MS);
+            }
+        }
+
+        // --- Helper Tools: Export, Speak, Copy, Toast ---
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const msgEl = document.getElementById('toastMsg');
+            const iconOk = document.getElementById('toastIconSuccess');
+            const iconErr = document.getElementById('toastIconError');
+            
+            msgEl.textContent = msg;
+            if (type === 'success') {
+                iconOk.classList.remove('hidden');
+                iconErr.classList.add('hidden');
+            } else {
+                iconOk.classList.add('hidden');
+                iconErr.classList.remove('hidden');
+            }
+
+            toast.classList.remove('translate-x-full', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-x-full', 'opacity-0');
+            }, 3000);
+        }
+
+        window.copyText = function(btn) {
+            const msgWrapper = btn.closest('[data-sender]');
+            const content = msgWrapper ? msgWrapper.querySelector('.bot-content') : null;
+            if (content) {
+                navigator.clipboard.writeText(content.innerText).then(() => {
+                    showToast(ui.toast_copy);
+                    btn.classList.add('text-umb-primary');
+                    setTimeout(() => btn.classList.remove('text-umb-primary'), 1500);
+                }).catch(err => console.error('Copy failed', err));
+            }
+        };
+
+        window.speakText = function(btn) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const msgWrapper = btn.closest('[data-sender]');
+                const content = msgWrapper ? msgWrapper.querySelector('.bot-content') : null;
+                if (content) {
+                    const utterance = new SpeechSynthesisUtterance(content.innerText);
+                    utterance.lang = 'id-ID';
+                    window.speechSynthesis.speak(utterance);
+                }
+            } else {
+                showToast("Text-to-speech tidak didukung di browser ini.", "error");
+            }
+        };
+
+        exportBtn.addEventListener('click', () => {
+            const msgs = document.querySelectorAll('#chatHistory > div[data-sender]');
+            if (msgs.length === 0) {
+                showToast(ui.toast_export_empty, 'error');
+                return;
+            }
+            
+            let exportTxt = `Riwayat Percakapan Asisten Virtual UMBandung\nTanggal: ${new Date().toLocaleString()}\n\n`;
+            msgs.forEach(msg => {
+                const sender = msg.dataset.sender === 'user' ? 'Anda' : 'Asisten';
+                const text = msg.dataset.sender === 'user' 
+                    ? msg.querySelector('div.whitespace-pre-wrap').innerText 
+                    : msg.querySelector('.bot-content').innerText;
+                exportTxt += `${sender}:\n${text}\n\n`;
+            });
+
+            const blob = new Blob([exportTxt], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const dateStr = new Date().toISOString().split('T')[0];
+            
+            // Branding change: percakapan-umbandung-
+            a.href = url;
+            a.download = `percakapan-umbandung-${dateStr}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            optionsMenu.classList.add('hidden');
+        });
+
+        confirmResetBtn.addEventListener('click', async () => {
+            closeModal(resetModal);
+            chatHistory.innerHTML = `<div class="text-center text-xs text-gray-400 my-2" data-translate-key="date_today">${ui.date_today}</div>`;
+            showWelcomeMessage();
+            // Hapus riwayat di sisi server lewat endpoint khusus /reset
+            // (sebelumnya mengirim "/reset" ke /chat -> diproses sebagai pertanyaan & boros token,
+            //  dan riwayat server tidak benar-benar terhapus).
+            try {
+                await fetch('/reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            } catch(e) { console.error('reset error:', e); }
+        });
+
+        // --- Feedback & Reaction Logic ---
+        window.handleFeedback = function(messageId, action, btn) {
+            // Get bot message text for logging
+            const msgWrapper = btn.closest('[data-sender]');
+            const botContent = msgWrapper ? (msgWrapper.querySelector('.bot-content') || {innerText:''}) : {innerText:''};
+            const msgText = botContent.innerText || '';
+
+            // Visual active state
+            const bar = btn.closest('[data-action-bar]');
+            if (bar) {
+                bar.querySelectorAll('.like-btn, .dislike-btn').forEach(b => {
+                    b.classList.remove('bg-green-100', 'bg-red-100');
+                });
+            }
+
+            if (action === 'like') {
+                btn.classList.add('bg-green-100');
+                // Tutup saran box jika terbuka
+                const saranBox = document.getElementById('saran-box-' + messageId);
+                if (saranBox) saranBox.classList.add('hidden');
+                // Kirim ke /log_reaction → reaction.log
+                fetch('/log_reaction', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reaction: 'like', message: msgText })
+                }).catch(err => console.error('log_reaction error:', err));
+                showToast('Terima kasih! Senang bisa membantu 😊');
+
+            } else if (action === 'dislike') {
+                btn.classList.add('bg-red-100');
+                // Kirim reaksi dislike ke /log_reaction → reaction.log
+                fetch('/log_reaction', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reaction: 'dislike', message: msgText })
+                }).catch(err => console.error('log_reaction error:', err));
+                // Tampilkan inline saran box
+                const saranBox = document.getElementById('saran-box-' + messageId);
+                if (saranBox) {
+                    saranBox.classList.remove('hidden');
+                    const textarea = document.getElementById('saran-text-' + messageId);
+                    if (textarea) setTimeout(() => textarea.focus(), 50);
+                    scrollToBottom();
+                }
+            }
+        };
+
+        // Tutup inline saran box
+        window.closeSaranBox = function(messageId) {
+            const saranBox = document.getElementById('saran-box-' + messageId);
+            if (saranBox) saranBox.classList.add('hidden');
+        };
+
+        // Kirim saran/masukan → /feedback → masukan disimpan di feedback.log (backend)
+        window.submitSaran = async function(messageId) {
+            const textarea = document.getElementById('saran-text-' + messageId);
+            const saranBox = document.getElementById('saran-box-' + messageId);
+            const text = textarea ? textarea.value.trim() : '';
+
+            if (!text) {
+                textarea.classList.add('border-red-400');
+                setTimeout(() => textarea.classList.remove('border-red-400'), 1500);
+                return;
+            }
+
+            // Ambil teks pesan bot yang di-dislike, supaya tercatat di feedback.log
+            const msgWrapper = document.querySelector('[data-sender="bot"][data-id="' + messageId + '"]');
+            const botContent = msgWrapper ? (msgWrapper.querySelector('.bot-content') || {innerText: ''}) : {innerText: ''};
+            const botMessage = botContent.innerText || '';
+
+            try {
+                const response = await fetch('/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ feedback: text, message: botMessage })
+                });
+                if (response.ok) {
+                    showToast('Masukan Anda sudah terkirim. Terima kasih! 🙏');
+                    if (saranBox) saranBox.classList.add('hidden');
+                } else {
+                    showToast('Gagal mengirim masukan. Coba lagi.', 'error');
+                }
+            } catch (err) {
+                console.error('submitSaran error:', err);
+                showToast('Gagal mengirim masukan. Coba lagi.', 'error');
+            }
+        };
+
+        // --- Zoom Controls ---
+        let chatZoom = 100;
+        const ZOOM_STEP = 5;
+        const ZOOM_MIN = 80;
+        const ZOOM_MAX = 110;
+        const zoomInBtn = document.getElementById('zoomInBtn');
+        const zoomOutBtn = document.getElementById('zoomOutBtn');
+        const zoomLabel = document.getElementById('zoomLabel');
+
+        function applyChatZoom() {
+            chatContainer.style.zoom = chatZoom + '%';
+            zoomLabel.textContent = chatZoom + '%';
+            zoomInBtn.disabled = chatZoom >= ZOOM_MAX;
+            zoomOutBtn.disabled = chatZoom <= ZOOM_MIN;
+            zoomInBtn.style.opacity = chatZoom >= ZOOM_MAX ? '0.4' : '1';
+            zoomOutBtn.style.opacity = chatZoom <= ZOOM_MIN ? '0.4' : '1';
+        }
+
+        zoomInBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (chatZoom < ZOOM_MAX) { chatZoom += ZOOM_STEP; applyChatZoom(); }
+        });
+
+        zoomOutBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (chatZoom > ZOOM_MIN) { chatZoom -= ZOOM_STEP; applyChatZoom(); }
+        });
+
+        // --- In-Chat Session Timeout Overlay ---
+        const chatTimeoutOverlay = document.getElementById('chatTimeoutOverlay');
+        const restartChatFromOverlay = document.getElementById('restartChatFromOverlay');
+
+        function showChatTimeoutOverlay() {
+            if (isChatOpen) {
+                chatTimeoutOverlay.classList.remove('hidden');
+            }
+        }
+
+        restartChatFromOverlay.addEventListener('click', () => {
+            chatTimeoutOverlay.classList.add('hidden');
+            confirmResetBtn.click();
+        });
+
+        restartChatBtn.addEventListener('click', () => {
+            closeModal(sessionTimeoutModal);
+            confirmResetBtn.click(); // Reuse reset logic
+        });
+
+        // Event listeners for session timer
+        document.addEventListener('mousemove', resetSessionTimer);
+        document.addEventListener('keypress', resetSessionTimer);
+
+        // --- User Type Selection ---
+        // Kirim/segarkan user_type ke server. Dipakai saat memilih pertama kali
+        // maupun saat memulihkan pilihan dari localStorage setelah refresh.
+        async function syncUserTypeToServer(type) {
+            try {
+                await fetch('/set_user_type', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_type: type })
+                });
+            } catch (e) {
+                console.error('syncUserType error:', e);
+            }
+        }
+
+        async function setUserType(type) {
+            // Simpan pilihan secara persisten (tahan refresh & tutup-buka tab)
+            localStorage.setItem('umb_user_type', type);
+            await syncUserTypeToServer(type);
+            // Sembunyikan overlay
+            document.getElementById('userTypeOverlay').classList.add('hidden');
+            // Tampilkan pesan selamat datang
+            if (chatHistory.children.length <= 1) {
+                showWelcomeMessage();
+            }
+            setTimeout(() => userInput.focus(), 300);
+        }
+
+        // ==========================================================
+        // MOBILE UI ENHANCEMENTS (aditif — tidak mengubah logic chat)
+        // ==========================================================
+        const chatScrim = document.getElementById('chatScrim');
+        const chatDragHandle = document.getElementById('chatDragHandle');
+        const isMobileView = () => window.matchMedia('(max-width: 639px)').matches;
+
+        // Sinkronkan "chrome" mobile (scrim + kunci scroll) dengan status chat.
+        // Listener ini terdaftar SETELAH handler utama chatToggle, sehingga
+        // membaca nilai isChatOpen yang sudah diperbarui.
+        function syncMobileChrome() {
+            const openOnMobile = isChatOpen && isMobileView();
+            document.body.classList.toggle('chat-open', openOnMobile);
+            if (openOnMobile) {
+                chatScrim.classList.remove('opacity-0', 'pointer-events-none');
+            } else {
+                chatScrim.classList.add('opacity-0', 'pointer-events-none');
+            }
+        }
+        chatToggle.addEventListener('click', syncMobileChrome);
+
+        // Tap area gelap (scrim) di luar sheet → tutup chat (tap-outside-to-close).
+        chatScrim.addEventListener('click', () => { if (isChatOpen) chatToggle.click(); });
+
+        // Bila orientasi/ukuran berubah (mis. rotasi atau buka keyboard), selaraskan ulang.
+        window.addEventListener('resize', () => { if (!isChatOpen) document.body.classList.remove('chat-open'); });
+
+        // --- Swipe-down-to-close pada drag handle (gestur khas bottom-sheet) ---
+        if (chatDragHandle) {
+            let dragStartY = null;
+            const CLOSE_THRESHOLD = 90; // px geser ke bawah untuk menutup
+
+            chatDragHandle.addEventListener('touchstart', (e) => {
+                if (!isMobileView()) return;
+                dragStartY = e.touches[0].clientY;
+                chatContainer.classList.add('is-dragging');
+            }, { passive: true });
+
+            chatDragHandle.addEventListener('touchmove', (e) => {
+                if (dragStartY === null) return;
+                const dy = e.touches[0].clientY - dragStartY;
+                if (dy > 0) {
+                    // Ikuti jari + sedikit redam agar terasa elastis
+                    chatContainer.style.transform = `translateY(${dy}px)`;
+                    chatScrim.style.opacity = String(Math.max(0, 0.4 - dy / 600));
+                }
+            }, { passive: true });
+
+            const endDrag = (e) => {
+                if (dragStartY === null) return;
+                const endY = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0].clientY : dragStartY;
+                const dy = endY - dragStartY;
+                chatContainer.classList.remove('is-dragging');
+                chatContainer.style.transform = '';
+                chatScrim.style.opacity = '';
+                if (dy > CLOSE_THRESHOLD && isChatOpen) {
+                    chatToggle.click();
+                }
+                dragStartY = null;
+            };
+            chatDragHandle.addEventListener('touchend', endDrag);
+            chatDragHandle.addEventListener('touchcancel', endDrag);
+        }
+
+        // Init setup
+        initLanguage();
+        updateCharCounter();
+        // Pulihkan hitung mundur cooldown bila masih berlaku setelah refresh/reload.
+        runCooldownTick();
+
+    </script>
+</body>
+</html>
