@@ -1,0 +1,20 @@
+# Rahasia — JANGAN di-commit
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Log
+*.log
+chatbot_activity.log
+feedback.log
+reaction.log
+
+# Editor / OS
+.vscode/
+.DS_Store
+Thumbs.db
