@@ -10,6 +10,19 @@
     <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='icon-ai.png') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-ai.png') }}">
 
+    <!-- Open Graph / Preview WhatsApp & Media Sosial -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Universitas Muhammadiyah Bandung">
+    <meta property="og:description" content="Chatbot Layanan Informasi Universitas Muhammadiyah Bandung (UMB).">
+    <meta property="og:image" content="{{ url_for('static', filename='preview.png', _external=True) }}">
+    <meta property="og:url" content="{{ request.url }}">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Universitas Muhammadiyah Bandung">
+    <meta name="twitter:description" content="Chatbot Layanan Informasi Universitas Muhammadiyah Bandung (UMB).">
+    <meta name="twitter:image" content="{{ url_for('static', filename='preview.png', _external=True) }}">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
