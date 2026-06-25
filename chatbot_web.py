@@ -472,13 +472,12 @@ def feedback():
     feedback_text = data.get("feedback", "").strip()
     bot_message = data.get("message", "").strip()
     if feedback_text:
-        timestamp = logging.Formatter('%(asctime)s').format(logging.makeLogRecord({}))
-        log_line = f"{timestamp} - IP: {get_remote_address()} | Feedback: {feedback_text}"
+        # Ditulis ke stdout lewat logging agar TAMPIL di Render dan bisa difilter
+        # dengan kata kunci [FEEDBACK] pada kotak "Search logs".
+        log_line = f"[FEEDBACK] IP: {get_remote_address()} | Feedback: {feedback_text}"
         if bot_message:
             log_line += f' | Message: "{bot_message}"'
-        log_line += "\n"
-        with open("feedback.log", "a", encoding="utf-8") as f:
-            f.write(log_line)
+        logging.getLogger("feedback").info(log_line)
         return jsonify({"status": "success"})
     return jsonify({"status": "error", "message": "Masukan tidak boleh kosong."}), 400
 
@@ -488,8 +487,10 @@ def log_reaction():
     reaction = data.get("reaction")
     message = data.get("message", "")
     if reaction and message:
-        with open("reaction.log", "a", encoding="utf-8") as f:
-            f.write(f"{logging.Formatter('%(asctime)s').format(logging.makeLogRecord({}))} - IP: {get_remote_address()} | Reaction: {reaction} | Message: \"{message}\"\n")
+        # Difilter di Render dengan kata kunci [REACTION].
+        logging.getLogger("reaction").info(
+            f'[REACTION] IP: {get_remote_address()} | Reaction: {reaction} | Message: "{message}"'
+        )
         return jsonify({"status": "success"})
     return jsonify({"status": "error", "message": "Data reaksi tidak valid."}), 400
 

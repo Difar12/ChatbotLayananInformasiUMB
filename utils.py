@@ -2,7 +2,7 @@
 
 import logging
 import re
-from logging.handlers import RotatingFileHandler
+import sys
 
 # Impor dari file database UMBandung
 from database_ID import (
@@ -14,16 +14,26 @@ from database_ID import (
 
 
 # --- Logging ---
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-log_handler = RotatingFileHandler('chatbot_activity.log', maxBytes=10*1024*1024, backupCount=5, encoding='utf-8')
-log_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+# Render HANYA menampilkan log dari stdout/stderr. File di disk (RotatingFileHandler)
+# tidak muncul di tab Logs DAN terhapus tiap restart/deploy (disk Render ephemeral).
+# Karena itu semua log diarahkan ke stdout, dengan prefix berlabel agar mudah difilter
+# lewat kotak "Search logs" di Render (mis. ketik: [ACTIVITY], [FEEDBACK], [REACTION]).
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
+
+# Logger khusus aktivitas (memakai root handler di atas -> ikut tampil di Render).
 activity_logger = logging.getLogger('activity_logger')
-activity_logger.setLevel(logging.INFO)
-activity_logger.addHandler(log_handler)
+
 
 def log_activity(ip, query, source, user_type, response):
     clean_response = ' '.join(str(response).splitlines())
-    activity_logger.info(f"IP: {ip} | Query: \"{query}\" | Source: {source} | UserType: {user_type} | Response: \"{clean_response}\"")
+    activity_logger.info(
+        f'[ACTIVITY] IP: {ip} | Query: "{query}" | Source: {source} | '
+        f'UserType: {user_type} | Response: "{clean_response}"'
+    )
 
 
 # Kunci sapaan: hanya dicocokkan secara PERSIS (exact), tidak boleh ikut pada
