@@ -15,6 +15,12 @@ from datetime import timedelta
 import config
 from utils import log_activity, search_knowledge_base, get_follow_ups, parse_bot_response, gather_kb_context
 from database_ID import AUTOCOMPLETE_TERMS_ID
+from detail_mode import (
+    parse_detail_request,
+    extract_last_exchange,
+    build_detail_prompt,
+    looks_like_rewrite,
+)
 
 
 def _strip_html(text):
@@ -296,31 +302,40 @@ def chat():
         if "history" not in session:
             session["history"] = []
 
-        is_more_details_request = user_message.lower() in ['bisa lebih detail?', 'jelaskan lebih detail']
-        
+        # --- 4) Deteksi permintaan pendalaman ("lebih detail") ---
+        # Sebelumnya memakai exact match string sehingga "lebih detail" tanpa tanda
+        # tanya lolos deteksi. Kini memakai pola yang mentoleransi variasi natural
+        # dan sekaligus menangkap fokus opsional ("lebih detail tentang biaya").
+        is_more_details_request, detail_focus = parse_detail_request(user_message)
+        if not detail_focus:
+            detail_focus = (data.get("detail_focus") or "").strip() or None
+
         original_query = user_message
         previous_answer = None
+
         if is_more_details_request:
-            if len(session.get("history", [])) >= 2:
-                # Ambil pertanyaan asli (user terakhir) DAN jawaban resmi terakhir (bot terakhir).
-                for i in range(len(session["history"]) - 1, -1, -1):
-                    role = session["history"][i]["role"]
-                    if role == "bot" and previous_answer is None:
-                        previous_answer = session["history"][i]["content"]
-                    if role == "user":
-                        original_query = session["history"][i]["content"]
-                        break
-            else:
+            original_query, previous_answer = extract_last_exchange(session.get("history", []))
+
+            # Tanpa pasangan (pertanyaan, jawaban) yang valid, mode detail tidak
+            # punya konteks apa pun -> jangan buang kuota Gemini.
+            if not original_query or not previous_answer:
                 return jsonify({
                     "status": "success",
                     "source": "local",
-                    "response": {"type": "paragraph", "content": "Silakan ajukan pertanyaan terlebih dahulu sebelum meminta detail lebih lanjut."},
+                    "response": {
+                        "type": "paragraph",
+                        "content": "Silakan ajukan pertanyaan terlebih dahulu sebelum meminta detail lebih lanjut."
+                    },
                     "follow_ups": None
                 })
-        else:
-            session["history"].append({"role": "user", "content": user_message})
-            session.modified = True
-            
+
+        # Giliran pengguna SELALU dicatat, termasuk pemicu "lebih detail".
+        # Sebelumnya pemicu tidak dicatat sehingga riwayat menghasilkan dua giliran
+        # 'bot' beruntun; pada permintaan detail berikutnya, trim ikut membuang
+        # pertanyaan asli pengguna dan konteks jadi hilang.
+        session["history"].append({"role": "user", "content": user_message})
+        session.modified = True
+
         json_response = {"status": "success", "source": "local", "response": {}, "follow_ups": None}
         
         user_type = session.get('user_type', 'Tidak Diketahui')
@@ -350,9 +365,11 @@ def chat():
             use_search = bool(getattr(config, "ENABLE_WEB_SEARCH", False))
             model = _build_gemini_model(with_search=use_search)
 
-            # Untuk permintaan "lebih detail": buang pasangan (user, bot) terakhir dari history
-            # karena jawaban resmi itu kita suntikkan ulang secara eksplisit pada prompt di bawah.
-            trim = 2 if is_more_details_request else 1
+            # Mode detail: buang 3 giliran terakhir (pertanyaan asli, jawaban resmi,
+            # dan pemicu "lebih detail") karena ketiganya disuntikkan ulang secara
+            # eksplisit pada prompt di bawah.
+            # Mode biasa: buang 1 giliran (pesan yang sedang diproses).
+            trim = 3 if is_more_details_request else 1
             hist = session.get("history", [])
             hist = hist[:-trim] if len(hist) >= trim else []
 
@@ -368,23 +385,26 @@ def chat():
                     gemini_history.append({"role": role, "parts": [{"text": text}]})
 
             # Tentukan pesan yang dikirim ke Gemini.
+            prev_answer_clean = None
+            kb_context = None
+
             if is_more_details_request and previous_answer:
-                # Sematkan jawaban resmi (knowledge base) sebagai SUMBER KEBENARAN agar Gemini
-                # hanya memperluas penjelasan TANPA menambah/mengubah fakta (nama, jumlah, daftar).
-                fakta_resmi = _strip_html(previous_answer)
-                message_to_send = (
-                    "Pengguna meminta penjelasan LEBIH DETAIL atas jawaban resmi di bawah ini.\n\n"
-                    f"PERTANYAAN ASLI PENGGUNA:\n{original_query}\n\n"
-                    f"JAWABAN RESMI DARI KNOWLEDGE BASE UMBANDUNG (sumber kebenaran):\n{fakta_resmi}\n\n"
-                    "INSTRUKSI WAJIB:\n"
-                    "1. Jelaskan ulang dan perluas jawaban resmi di atas agar lebih mudah dipahami.\n"
-                    "2. Ikuti SEMUA fakta pada jawaban resmi PERSIS apa adanya — nama, jumlah, daftar "
-                    "item, angka, dan tautan TIDAK BOLEH ditambah, dikurangi, atau diubah.\n"
-                    "3. DILARANG menambahkan program studi, fakultas, layanan, atau data lain yang tidak "
-                    "tercantum pada jawaban resmi tersebut.\n"
-                    "4. Bila ada hal yang tidak tercantum pada jawaban resmi, arahkan pengguna untuk "
-                    "mengonfirmasi ke unit terkait UMBandung — jangan mengarang.\n"
-                    "5. Jawab dalam Bahasa Indonesia yang ringkas dan rapi."
+                # MODE PENDALAMAN.
+                # Jawaban lama diposisikan sebagai KONTEKS BACAAN (bukan bahan tulis
+                # ulang), lalu konteks database disuntikkan sebagai satu-satunya
+                # sumber fakta baru. Detail prompt ada di detail_mode.py.
+                prev_answer_clean = _strip_html(previous_answer)
+
+                # Query gabungan (pertanyaan asli + fokus) mempertajam pencarian KB
+                # ke bagian yang benar-benar diminta pengguna.
+                kb_query = f"{original_query} {detail_focus}".strip() if detail_focus else original_query
+                kb_context = gather_kb_context(kb_query)
+
+                message_to_send = build_detail_prompt(
+                    original_query=original_query,
+                    previous_answer=prev_answer_clean,
+                    kb_context=kb_context,
+                    focus=detail_focus,
                 )
             else:
                 # Suntikkan konteks database yang relevan agar Gemini "membaca database
@@ -418,6 +438,26 @@ def chat():
                     raise
             
             bot_message = response.text.strip()
+
+            # Guard mode pendalaman: bila model tetap menulis ulang jawaban lama,
+            # ulangi SEKALI dengan prompt bermode strict. Biaya maksimal 1 request
+            # tambahan, hanya pada mode detail, dan hanya bila kemiripan kosakata
+            # melewati ambang (jawaban pendek otomatis dilewati).
+            if is_more_details_request and prev_answer_clean and looks_like_rewrite(bot_message, prev_answer_clean):
+                logging.info(
+                    f"[DETAIL] Jawaban terdeteksi sebagai tulis ulang untuk: "
+                    f"\"{original_query}\" → regenerasi mode strict."
+                )
+                strict_prompt = build_detail_prompt(
+                    original_query=original_query,
+                    previous_answer=prev_answer_clean,
+                    kb_context=kb_context,
+                    focus=detail_focus,
+                    strict_retry=True,
+                )
+                response = chat_session.send_message(strict_prompt)
+                bot_message = response.text.strip()
+
             session["history"].append({"role": "bot", "content": bot_message})
             session.modified = True
 
